@@ -2,33 +2,31 @@ package com.ecommerce.orderservice.client;
 
 import com.ecommerce.orderservice.dto.NotificationRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
 
+/**
+ * @deprecated Notifications are now sent asynchronously via Kafka.
+ *             The {@code KafkaTemplate} in {@code OrderService} publishes
+ *             {@code OrderConfirmedEvent} / {@code OrderFailedEvent} to the
+ *             {@code order.confirmed} and {@code order.payment-failed} topics,
+ *             which are consumed by notification-service.
+ *
+ *             This class is kept as a compile-safe no-op stub so that any
+ *             test code referencing it still compiles.  It will be removed in
+ *             a future clean-up PR.
+ */
 @Slf4j
+@Deprecated(since = "2.0", forRemoval = true)
 @Component
 public class NotificationClient {
 
-    private final WebClient webClient;
-
-    public NotificationClient(WebClient.Builder builder,
-                              @Value("${services.notification-service.url}") String url) {
-        this.webClient = builder.baseUrl(url).build();
-    }
-
+    /**
+     * No-op — always logs a warning and returns immediately.
+     * Use Kafka events instead.
+     */
     public void sendNotification(NotificationRequest request) {
-        try {
-            webClient.post()
-                    .uri("/api/v1/notifications/send")
-                    .bodyValue(request)
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-            log.info("Notification dispatched to {} for ref {}", request.getRecipient(), request.getReferenceId());
-        } catch (Exception ex) {
-            // Notification failure is non-fatal — order is already created
-            log.error("Failed to send notification for ref {}: {}", request.getReferenceId(), ex.getMessage());
-        }
+        log.warn("[DEPRECATED] NotificationClient.sendNotification() called — " +
+                 "this is a no-op; notifications are sent via Kafka. ref={}",
+                 request.getReferenceId());
     }
 }

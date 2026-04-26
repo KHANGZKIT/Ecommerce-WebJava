@@ -1,9 +1,11 @@
 package com.ecommerce.orderservice.service;
 
-import com.ecommerce.orderservice.client.NotificationClient;
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.ProductClient;
+import com.ecommerce.orderservice.config.KafkaProducerConfig;
 import com.ecommerce.orderservice.dto.*;
+import com.ecommerce.orderservice.event.OrderConfirmedEvent;
+import com.ecommerce.orderservice.event.OrderFailedEvent;
 import com.ecommerce.orderservice.exception.OrderNotFoundException;
 import com.ecommerce.orderservice.exception.OrderStatusException;
 import com.ecommerce.orderservice.model.Order;
@@ -14,22 +16,31 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * Order service — orchestrates the checkout flow:
- * 1. Fetch product details from product-service
- * 2. Persist order as PENDING
- * 3. Call payment-service
- * 4. Update order status based on payment result
- * 5. Decrement stock in product-service
- * 6. Fire confirmation notification (best-effort)
+ *
+ * BEFORE (synchronous):
+ *   N × product-service calls → payment-service → N × stock decrement → notification-service
+ *   Latency = sum of all remote calls; threads blocked throughout.
+ *
+ * AFTER (optimised):
+ *   1 × batch product-service call  (fixes N+1)
+ *   → payment-service
+ *   → N × async stock decrement     (non-blocking; fire-and-forget)
+ *   → Kafka event                   (notification-service consumes asynchronously)
+ *
+ * API response returns as soon as the order is saved + payment decided.
+ * Notifications and stock decrements happen in the background.
  */
 @Slf4j
 @Service
@@ -39,19 +50,29 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final PaymentClient paymentClient;
-    private final NotificationClient notificationClient;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Transactional
     public OrderDto createOrder(CreateOrderRequest request) {
         log.info("Creating order for user {}", request.getUserId());
 
-        // Step 1: Build order items by fetching product data
+        // ── Step 1: Batch-fetch all product details in ONE round-trip ──────────
+        List<Long> productIds = request.getItems().stream()
+                .map(OrderItemRequest::getProductId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, ProductResponse> productMap = productClient.getProductsByIds(productIds);
+
+        // ── Step 2: Validate stock and build order items ───────────────────────
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
 
         for (OrderItemRequest itemReq : request.getItems()) {
-            ProductResponse product = productClient.getProductById(itemReq.getProductId());
-
+            ProductResponse product = productMap.get(itemReq.getProductId());
+            if (product == null) {
+                throw new IllegalArgumentException("Product not found or inactive: " + itemReq.getProductId());
+            }
             if (!product.isActive()) {
                 throw new IllegalArgumentException("Product '" + product.getName() + "' is not available");
             }
@@ -70,20 +91,19 @@ public class OrderService {
             total = total.add(subtotal);
         }
 
-        // Step 2: Persist order as PENDING
+        // ── Step 3: Persist order as PENDING ──────────────────────────────────
         Order order = Order.builder()
                 .userId(request.getUserId()).shippingAddress(request.getShippingAddress())
                 .totalAmount(total).status(OrderStatus.PENDING).notes(request.getNotes())
                 .build();
         order = orderRepository.save(order);
 
-        // Link items to order
         for (OrderItem item : orderItems) { item.setOrder(order); }
         order.setItems(orderItems);
         order = orderRepository.save(order);
         log.info("Order {} persisted as PENDING, total={}", order.getId(), total);
 
-        // Step 3: Process payment
+        // ── Step 4: Process payment (synchronous — we need the result) ─────────
         PaymentRequest paymentReq = PaymentRequest.builder()
                 .orderId(order.getId()).userId(request.getUserId())
                 .amount(total).paymentMethod(request.getPaymentMethod().name())
@@ -91,37 +111,43 @@ public class OrderService {
 
         PaymentResponse paymentResp = paymentClient.chargePayment(paymentReq);
 
-        // Step 4: Update order status
+        // ── Step 5a: Payment succeeded ─────────────────────────────────────────
         if ("SUCCESS".equals(paymentResp.getStatus())) {
             order.setStatus(OrderStatus.CONFIRMED);
             order.setPaymentTransactionId(paymentResp.getTransactionId());
             log.info("Order {} CONFIRMED, txn={}", order.getId(), paymentResp.getTransactionId());
 
-            // Step 5: Decrement stock (best-effort)
+            // Decrement stock asynchronously (fire-and-forget)
             for (OrderItem item : orderItems) {
-                productClient.decrementStock(item.getProductId(), item.getQuantity());
+                productClient.decrementStockAsync(item.getProductId(), item.getQuantity());
             }
 
-            // Step 6: Send confirmation notification
-            notificationClient.sendNotification(NotificationRequest.builder()
-                    .recipient("user-" + request.getUserId() + "@ecommerce.com")  // resolved from userId
-                    .subject("Order #" + order.getId() + " Confirmed!")
-                    .body("Your order has been confirmed. Transaction ID: " + paymentResp.getTransactionId()
-                          + ". Total: ₹" + total)
-                    .type("EMAIL")
-                    .referenceId(order.getId())
-                    .build());
+            // Publish event → notification-service consumes from Kafka
+            kafkaTemplate.send(
+                KafkaProducerConfig.TOPIC_ORDER_CONFIRMED,
+                String.valueOf(order.getId()),
+                OrderConfirmedEvent.builder()
+                    .orderId(order.getId())
+                    .userId(request.getUserId())
+                    .transactionId(paymentResp.getTransactionId())
+                    .totalAmount(total)
+                    .build()
+            );
+
+        // ── Step 5b: Payment failed ────────────────────────────────────────────
         } else {
             order.setStatus(OrderStatus.PAYMENT_FAILED);
             log.warn("Order {} PAYMENT_FAILED: {}", order.getId(), paymentResp.getMessage());
 
-            notificationClient.sendNotification(NotificationRequest.builder()
-                    .recipient("user-" + request.getUserId() + "@ecommerce.com")
-                    .subject("Payment Failed for Order #" + order.getId())
-                    .body("Unfortunately your payment failed. Reason: " + paymentResp.getMessage())
-                    .type("EMAIL")
-                    .referenceId(order.getId())
-                    .build());
+            kafkaTemplate.send(
+                KafkaProducerConfig.TOPIC_ORDER_FAILED,
+                String.valueOf(order.getId()),
+                OrderFailedEvent.builder()
+                    .orderId(order.getId())
+                    .userId(request.getUserId())
+                    .reason(paymentResp.getMessage())
+                    .build()
+            );
         }
 
         return toDto(orderRepository.save(order));

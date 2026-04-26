@@ -27,6 +27,16 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 3
 
   jackson:
     deserialization:
@@ -39,8 +49,6 @@ services:
     url: http://product-service:8082
   payment-service:
     url: http://payment-service:8085
-  notification-service:
-    url: http://notification-service:8086
 
 management:
   endpoints:
