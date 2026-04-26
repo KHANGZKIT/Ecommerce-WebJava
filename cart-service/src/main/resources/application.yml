@@ -18,8 +18,10 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      # Pool reduced: cart reads/writes go to Redis; Postgres only for schema DDL
+      maximum-pool-size: 5
+      minimum-idle: 1
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update
@@ -27,6 +29,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 500ms
 
   jackson:
     deserialization:
