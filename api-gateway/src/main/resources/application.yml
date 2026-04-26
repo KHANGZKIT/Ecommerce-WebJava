@@ -9,10 +9,24 @@ server:
 spring:
   application:
     name: api-gateway
+
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
   cloud:
     gateway:
       routes:
-        # User Service routes - public auth endpoints bypass JWT filter
+        # ─────────────────────────────────────────────────────────────────────
+        # User Service — public auth (no rate limit, no auth filter)
+        # ─────────────────────────────────────────────────────────────────────
         - id: user-service-auth
           uri: http://user-service:8081
           predicates:
@@ -20,7 +34,9 @@ spring:
           filters:
             - StripPrefix=0
 
-        # User Service routes - protected profile endpoints
+        # ─────────────────────────────────────────────────────────────────────
+        # User Service — protected profile endpoints (rate limited per user)
+        # ─────────────────────────────────────────────────────────────────────
         - id: user-service-users
           uri: http://user-service:8081
           predicates:
@@ -28,8 +44,14 @@ spring:
           filters:
             - StripPrefix=0
             - AuthenticationFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
-        # Product Service routes
+        # ─────────────────────────────────────────────────────────────────────
+        # Product Service — public browse (rate limited per IP)
+        # ─────────────────────────────────────────────────────────────────────
         - id: product-service
           uri: http://product-service:8082
           predicates:
@@ -37,8 +59,14 @@ spring:
           filters:
             - StripPrefix=0
             - AuthenticationFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@publicRateLimiter}"
+                key-resolver: "#{@publicApiKeyResolver}"
 
-        # Cart Service routes
+        # ─────────────────────────────────────────────────────────────────────
+        # Cart Service (rate limited per user)
+        # ─────────────────────────────────────────────────────────────────────
         - id: cart-service
           uri: http://cart-service:8083
           predicates:
@@ -46,8 +74,14 @@ spring:
           filters:
             - StripPrefix=0
             - AuthenticationFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
-        # Order Service routes
+        # ─────────────────────────────────────────────────────────────────────
+        # Order Service (rate limited per user)
+        # ─────────────────────────────────────────────────────────────────────
         - id: order-service
           uri: http://order-service:8084
           predicates:
@@ -55,8 +89,14 @@ spring:
           filters:
             - StripPrefix=0
             - AuthenticationFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
-        # Payment Service routes
+        # ─────────────────────────────────────────────────────────────────────
+        # Payment Service (tighter rate limit — fraud prevention)
+        # ─────────────────────────────────────────────────────────────────────
         - id: payment-service
           uri: http://payment-service:8085
           predicates:
@@ -64,8 +104,14 @@ spring:
           filters:
             - StripPrefix=0
             - AuthenticationFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
-        # OpenAPI Docs Proxy Routes
+        # ─────────────────────────────────────────────────────────────────────
+        # OpenAPI Docs Proxy Routes (no rate limit — internal tooling only)
+        # ─────────────────────────────────────────────────────────────────────
         - id: openapi-user
           uri: http://user-service:8081
           predicates:
@@ -138,12 +184,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
     com.ecommerce.gateway: DEBUG
