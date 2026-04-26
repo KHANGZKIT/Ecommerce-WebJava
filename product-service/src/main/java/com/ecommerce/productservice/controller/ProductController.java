@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
@@ -46,6 +49,15 @@ public class ProductController {
     @GetMapping("/sku/{sku}")
     public ResponseEntity<ProductDto> getBySku(@PathVariable String sku) {
         return ResponseEntity.ok(productService.getProductBySku(sku));
+    }
+
+    /**
+     * Batch fetch — accepts a list of product IDs, returns a Map<id, ProductDto>.
+     * Used internally by order-service to replace N individual GET calls.
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<Map<Long, ProductDto>> getByIds(@RequestBody List<Long> ids) {
+        return ResponseEntity.ok(productService.getProductsByIds(ids));
     }
 
     @PostMapping

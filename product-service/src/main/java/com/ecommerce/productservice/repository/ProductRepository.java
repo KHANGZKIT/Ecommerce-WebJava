@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,8 +22,35 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findAllByCategoryIdAndActiveTrue(Long categoryId, Pageable pageable);
 
-    @Query("SELECT p FROM Product p WHERE p.active = true AND " +
-           "(LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    /**
+     * Batch fetch — replaces the N+1 loop in OrderService.
+     * Only returns active products so inactive items are rejected early.
+     */
+    List<Product> findAllByIdInAndActiveTrue(List<Long> ids);
+
+    /**
+     * Full-Text Search using PostgreSQL tsvectors + GIN index.
+     *
+     * Replaces the old LIKE '%keyword%' query which performed a sequential scan.
+     * The native SQL leverages PostgreSQL's plainto_tsquery so multi-word
+     * phrases work correctly, and the '||' weights both name and description.
+     *
+     * For best performance, add a GIN index in a migration:
+     *   CREATE INDEX idx_product_fts ON products
+     *     USING gin(to_tsvector('english', name || ' ' || description));
+     */
+    @Query(value = """
+            SELECT p.* FROM products p
+            WHERE p.active = true
+              AND to_tsvector('english', coalesce(p.name,'') || ' ' || coalesce(p.description,''))
+                  @@ plainto_tsquery('english', :keyword)
+            """,
+            countQuery = """
+            SELECT count(*) FROM products p
+            WHERE p.active = true
+              AND to_tsvector('english', coalesce(p.name,'') || ' ' || coalesce(p.description,''))
+                  @@ plainto_tsquery('english', :keyword)
+            """,
+            nativeQuery = true)
     Page<Product> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }
