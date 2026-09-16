@@ -1,6 +1,7 @@
 package com.ecommerce.notificationservice.kafka;
 
 import com.ecommerce.notificationservice.dto.NotificationRequest;
+import com.ecommerce.notificationservice.model.NotificationType;
 import com.ecommerce.notificationservice.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,14 +46,14 @@ public class NotificationEventConsumer {
 
             log.info("[Kafka] order.confirmed received — orderId={}, userId={}", orderId, userId);
 
-            notificationService.send(NotificationRequest.builder()
-                    .recipient("user-" + userId + "@ecommerce.com")
-                    .subject("Order #" + orderId + " Confirmed!")
-                    .body("Your order has been confirmed. Transaction ID: " + txnId
-                          + ". Total: ₹" + total)
-                    .type("EMAIL")
-                    .referenceId(orderId)
-                    .build());
+            NotificationRequest request = new NotificationRequest();
+            request.setRecipient("user-" + userId + "@ecommerce.com");
+            request.setSubject("Order #" + orderId + " Confirmed!");
+            request.setBody("Your order has been confirmed. Transaction ID: " + txnId
+                    + ". Total: ₹" + total);
+            request.setType(NotificationType.EMAIL);
+            request.setReferenceId(orderId);
+            notificationService.send(request);
         } catch (Exception ex) {
             log.error("[Kafka] Failed to process order.confirmed event: {}", ex.getMessage(), ex);
             // In production: publish to a dead-letter topic or raise an alert
@@ -73,13 +74,13 @@ public class NotificationEventConsumer {
 
             log.info("[Kafka] order.payment-failed received — orderId={}, userId={}", orderId, userId);
 
-            notificationService.send(NotificationRequest.builder()
-                    .recipient("user-" + userId + "@ecommerce.com")
-                    .subject("Payment Failed for Order #" + orderId)
-                    .body("Unfortunately your payment failed. Reason: " + reason)
-                    .type("EMAIL")
-                    .referenceId(orderId)
-                    .build());
+            NotificationRequest request = new NotificationRequest();
+            request.setRecipient("user-" + userId + "@ecommerce.com");
+            request.setSubject("Payment Failed for Order #" + orderId);
+            request.setBody("Unfortunately your payment failed. Reason: " + reason);
+            request.setType(NotificationType.EMAIL);
+            request.setReferenceId(orderId);
+            notificationService.send(request);
         } catch (Exception ex) {
             log.error("[Kafka] Failed to process order.payment-failed event: {}", ex.getMessage(), ex);
         }

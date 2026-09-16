@@ -138,15 +138,18 @@ public class ProductService {
     @Transactional
     public ProductDto updateInventory(Long id, InventoryUpdateRequest request) {
         Product product = findOrThrow(id);
-        int newQty = switch (request.getMode()) {
+        long newQty = switch (request.getMode()) {
             case ABSOLUTE -> request.getQuantity();
-            case DELTA    -> product.getStockQuantity() + request.getQuantity();
+            case DELTA    -> (long) product.getStockQuantity() + request.getQuantity();
         };
         if (newQty < 0) {
             throw new InsufficientStockException(
                 "Insufficient stock for product id " + id + ". Current: " + product.getStockQuantity());
         }
-        product.setStockQuantity(newQty);
+        if (newQty > Integer.MAX_VALUE) {
+            throw new InsufficientStockException("Stock quantity exceeds supported maximum for product id " + id);
+        }
+        product.setStockQuantity((int) newQty);
         log.info("Updated inventory for product {} to {}", id, newQty);
         return toDto(productRepository.save(product));
     }

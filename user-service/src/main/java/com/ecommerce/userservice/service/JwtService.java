@@ -1,9 +1,9 @@
 package com.ecommerce.userservice.service;
 
+import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -76,8 +76,17 @@ public class JwtService {
                 .getBody();
     }
 
+    @PostConstruct
+    public void validateKeyConfiguration() {
+        try {
+            getSigningKey();
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("JWT secret must be valid Base64 encoding at least 32 bytes");
+        }
+    }
+
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        byte[] keyBytes = java.util.Base64.getDecoder().decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 

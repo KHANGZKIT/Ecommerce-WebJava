@@ -1,6 +1,7 @@
 package com.ecommerce.productservice.dto;
 
-import jakarta.validation.constraints.Min;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -8,7 +9,7 @@ import lombok.Data;
 public class InventoryUpdateRequest {
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 0, message = "Quantity cannot be negative")
+    // DELTA is signed; ABSOLUTE must be nonnegative.
     private Integer quantity;
 
     /** ABSOLUTE sets exact stock; DELTA adds/subtracts */
@@ -16,4 +17,11 @@ public class InventoryUpdateRequest {
 
     @NotNull(message = "Update mode is required")
     private UpdateMode mode;
+
+    @JsonIgnore
+    @AssertTrue(message = "Quantity cannot be negative in ABSOLUTE mode")
+    public boolean isQuantityValidForMode() {
+        // Missing fields are reported by their @NotNull constraints.
+        return quantity == null || mode == null || mode == UpdateMode.DELTA || quantity >= 0;
+    }
 }

@@ -5,6 +5,8 @@ import com.ecommerce.cartservice.dto.CartDto;
 import com.ecommerce.cartservice.dto.UpdateQuantityRequest;
 import com.ecommerce.cartservice.service.CartService;
 import jakarta.validation.Valid;
+import com.ecommerce.cartservice.security.CartPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,42 +18,39 @@ public class CartController {
 
     private final CartService cartService;
 
-    /**
-     * userId is resolved from the X-User-Id header injected by API Gateway.
-     * In a real system you'd resolve email->id via a lookup; here we pass userId directly for simplicity.
-     */
+    /** Every operation uses only the identity verified by Cart authentication. */
     @GetMapping
     public ResponseEntity<CartDto> getCart(
-            @RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(cartService.getCartByUserId(userId));
+            @AuthenticationPrincipal CartPrincipal principal) {
+        return ResponseEntity.ok(cartService.getCartByUserId(principal.userId()));
     }
 
     @PostMapping("/items")
     public ResponseEntity<CartDto> addItem(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal CartPrincipal principal,
             @Valid @RequestBody AddItemRequest request) {
-        return ResponseEntity.ok(cartService.addItem(userId, request));
+        return ResponseEntity.ok(cartService.addItem(principal.userId(), request));
     }
 
     @PatchMapping("/items/{itemId}")
     public ResponseEntity<CartDto> updateItemQuantity(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal CartPrincipal principal,
             @PathVariable Long itemId,
             @Valid @RequestBody UpdateQuantityRequest request) {
-        return ResponseEntity.ok(cartService.updateItemQuantity(userId, itemId, request));
+        return ResponseEntity.ok(cartService.updateItemQuantity(principal.userId(), itemId, request));
     }
 
     @DeleteMapping("/items/{itemId}")
     public ResponseEntity<CartDto> removeItem(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal CartPrincipal principal,
             @PathVariable Long itemId) {
-        return ResponseEntity.ok(cartService.removeItem(userId, itemId));
+        return ResponseEntity.ok(cartService.removeItem(principal.userId(), itemId));
     }
 
     @DeleteMapping
     public ResponseEntity<Void> clearCart(
-            @RequestHeader("X-User-Id") Long userId) {
-        cartService.clearCart(userId);
+            @AuthenticationPrincipal CartPrincipal principal) {
+        cartService.clearCart(principal.userId());
         return ResponseEntity.noContent().build();
     }
 }

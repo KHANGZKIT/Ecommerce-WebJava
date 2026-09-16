@@ -1,6 +1,8 @@
 package com.ecommerce.gateway.filter;
 
 import com.ecommerce.gateway.util.JwtUtil;
+import io.jsonwebtoken.Claims;
+import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -38,27 +40,54 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                 return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
             }
 
+            if (request.getHeaders().get(HttpHeaders.AUTHORIZATION).size() != 1) {
+                return onError(exchange, "Multiple Authorization headers are not allowed", HttpStatus.UNAUTHORIZED);
+            }
             String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 return onError(exchange, "Invalid Authorization header format", HttpStatus.UNAUTHORIZED);
             }
 
             String token = authHeader.substring(7);
-
-            if (!jwtUtil.isTokenValid(token)) {
-                log.warn("Invalid JWT token for request: {}", request.getURI());
+            final String username;
+            final Long userId;
+            try {
+                // Parse once: all propagated identity must come from the same verified claims.
+                Claims claims = jwtUtil.extractAllClaims(token);
+                username = claims.getSubject();
+                if (username == null || username.isBlank() || claims.getExpiration() == null
+                        || !claims.getExpiration().after(new Date())) {
+                    throw new IllegalArgumentException("Missing or expired identity");
+                }
+                Object id = claims.get("userId");
+                if (id == null) {
+                    userId = null;
+                } else if ((id instanceof Integer || id instanceof Long) && ((Number) id).longValue() > 0) {
+                    userId = ((Number) id).longValue();
+                } else {
+                    throw new IllegalArgumentException("Invalid userId claim");
+                }
+                if (config.isRequireUserId() && userId == null) {
+                    return onError(exchange, "Token lacks userId; please log in again", HttpStatus.UNAUTHORIZED);
+                }
+            } catch (Exception ex) {
                 return onError(exchange, "Invalid or expired JWT token", HttpStatus.UNAUTHORIZED);
             }
 
-            String username = jwtUtil.extractUsername(token);
-            log.debug("Authenticated user: {} for path: {}", username, request.getURI());
-
-            // Propagate authenticated user info to downstream services as headers
+            // These headers are trusted only on requests arriving through this filter.
+            // Remove every client value (including duplicates) before setting verified values.
             ServerHttpRequest mutatedRequest = request.mutate()
-                    .header("X-User-Email", username)
-                    .header("X-Auth-Token", token)
+                    .headers(headers -> {
+                        headers.remove("X-User-Id");
+                        headers.remove("X-User-Email");
+                        headers.remove("X-Auth-Token");
+                        headers.set("X-User-Email", username);
+                        headers.set("X-Auth-Token", token);
+                        if (userId != null) {
+                            headers.set("X-User-Id", userId.toString());
+                        }
+                    })
                     .build();
-
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
         };
     }
@@ -72,6 +101,9 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     }
 
     public static class Config {
-        // No additional config needed for now
+        private boolean requireUserId;
+
+        public boolean isRequireUserId() { return requireUserId; }
+        public void setRequireUserId(boolean requireUserId) { this.requireUserId = requireUserId; }
     }
 }

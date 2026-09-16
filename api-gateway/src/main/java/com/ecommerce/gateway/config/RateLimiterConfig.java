@@ -76,6 +76,7 @@ public class RateLimiterConfig {
      * 20 req/sec replenish, burst up to 40 — for legitimate interactive use.
      */
     @Bean(name = "userRateLimiter")
+    @Primary
     public RedisRateLimiter userRateLimiter() {
         return new RedisRateLimiter(20, 40, 1);
     }

@@ -61,3 +61,6 @@ management:
 logging:
   level:
     com.ecommerce.cartservice: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET}
