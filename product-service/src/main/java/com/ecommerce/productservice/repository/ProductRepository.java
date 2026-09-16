@@ -14,9 +14,15 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    Optional<Product> findBySku(String sku);
+    /** Normal lookups only surface active products; soft-deleted rows are hidden. */
+    Optional<Product> findByIdAndActiveTrue(Long id);
+
+    Optional<Product> findBySkuAndActiveTrue(String sku);
 
     boolean existsBySku(String sku);
+
+    /** True while at least one active product references the category — blocks category deletion. */
+    boolean existsByCategoryIdAndActiveTrue(Long categoryId);
 
     Page<Product> findAllByActiveTrue(Pageable pageable);
 

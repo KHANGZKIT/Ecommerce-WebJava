@@ -10,7 +10,6 @@ import com.ecommerce.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
@@ -63,13 +62,14 @@ public class ProductService {
     @Cacheable(value = "products", key = "#id")
     @Transactional(readOnly = true)
     public ProductDto getProductById(Long id) {
-        return toDto(findOrThrow(id));
+        return toDto(productRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id)));
     }
 
     @Cacheable(value = "products", key = "'sku-' + #sku")
     @Transactional(readOnly = true)
     public ProductDto getProductBySku(String sku) {
-        return toDto(productRepository.findBySku(sku)
+        return toDto(productRepository.findBySkuAndActiveTrue(sku)
                 .orElseThrow(() -> new ProductNotFoundException("Product not found with SKU: " + sku)));
     }
 
@@ -87,7 +87,9 @@ public class ProductService {
     }
 
     // -------------------------------------------------------------------------
-    // Write operations (cache maintaining)
+    // Write operations — invalidate instead of re-put: a write must not leave
+    // either the id entry or the derived 'sku-…' entry stale, and a deactivating
+    // write must not cache an inactive product as if it were retrievable.
     // -------------------------------------------------------------------------
 
     @CacheEvict(value = "productsList", allEntries = true)
@@ -112,17 +114,17 @@ public class ProductService {
         return toDto(saved);
     }
 
-    @Caching(
-        put  = @CachePut(value = "products", key = "#id"),
-        evict = @CacheEvict(value = "productsList", allEntries = true)
-    )
+    @Caching(evict = {
+        @CacheEvict(value = "products", key = "#id"),
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
+        @CacheEvict(value = "productsList", allEntries = true)
+    })
     @Transactional
     public ProductDto updateProduct(Long id, UpdateProductRequest request) {
         Product product = findOrThrow(id);
         if (request.getName() != null) product.setName(request.getName());
         if (request.getDescription() != null) product.setDescription(request.getDescription());
         if (request.getPrice() != null) product.setPrice(request.getPrice());
-        if (request.getStockQuantity() != null) product.setStockQuantity(request.getStockQuantity());
         if (request.getImageUrl() != null) product.setImageUrl(request.getImageUrl());
         if (request.getCategoryId() != null) {
             product.setCategory(categoryService.findOrThrow(request.getCategoryId()));
@@ -131,10 +133,11 @@ public class ProductService {
         return toDto(productRepository.save(product));
     }
 
-    @Caching(
-        put  = @CachePut(value = "products", key = "#id"),
-        evict = @CacheEvict(value = "productsList", allEntries = true)
-    )
+    @Caching(evict = {
+        @CacheEvict(value = "products", key = "#id"),
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
+        @CacheEvict(value = "productsList", allEntries = true)
+    })
     @Transactional
     public ProductDto updateInventory(Long id, InventoryUpdateRequest request) {
         Product product = findOrThrow(id);
@@ -156,14 +159,16 @@ public class ProductService {
 
     @Caching(evict = {
         @CacheEvict(value = "products", key = "#id"),
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
         @CacheEvict(value = "productsList", allEntries = true)
     })
     @Transactional
-    public void deleteProduct(Long id) {
+    public ProductDto deleteProduct(Long id) {
         Product product = findOrThrow(id);
         product.setActive(false);   // soft delete
         productRepository.save(product);
         log.info("Soft-deleted product id: {}", id);
+        return toDto(product);
     }
 
     // -------------------------------------------------------------------------

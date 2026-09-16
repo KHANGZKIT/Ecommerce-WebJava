@@ -20,9 +20,6 @@ public class UpdateProductRequest {
     @Digits(integer = 8, fraction = 2)
     private BigDecimal price;
 
-    @Min(value = 0, message = "Stock quantity cannot be negative")
-    private Integer stockQuantity;
-
     private String imageUrl;
 
     private Long categoryId;

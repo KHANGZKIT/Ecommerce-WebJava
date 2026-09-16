@@ -3,9 +3,11 @@ package com.ecommerce.productservice.service;
 import com.ecommerce.productservice.dto.CategoryDto;
 import com.ecommerce.productservice.dto.CreateCategoryRequest;
 import com.ecommerce.productservice.exception.CategoryAlreadyExistsException;
+import com.ecommerce.productservice.exception.CategoryInUseException;
 import com.ecommerce.productservice.exception.CategoryNotFoundException;
 import com.ecommerce.productservice.model.Category;
 import com.ecommerce.productservice.repository.CategoryRepository;
+import com.ecommerce.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     public List<CategoryDto> getAllActiveCategories() {
@@ -59,6 +62,10 @@ public class CategoryService {
     @Transactional
     public void deleteCategory(Long id) {
         Category category = findOrThrow(id);
+        if (productRepository.existsByCategoryIdAndActiveTrue(id)) {
+            throw new CategoryInUseException("Cannot delete category '" + category.getName()
+                    + "' (id: " + id + ") because active products reference it");
+        }
         category.setActive(false);  // soft delete
         categoryRepository.save(category);
         log.info("Soft-deleted category id: {}", id);

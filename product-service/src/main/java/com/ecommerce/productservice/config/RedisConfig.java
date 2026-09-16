@@ -24,7 +24,7 @@ import java.util.Map;
  * Redis cache configuration for product-service.
  *
  * Cache namespaces:
- *  - "products"     → individual product by id   (TTL 10 min)
+ *  - "products"     → individual product by id and by SKU ("sku-…" keys) (TTL 10 min)
  *  - "productsList" → paginated product lists     (TTL 5 min)
  *  - "categories"   → individual category by id  (TTL 30 min)
  *
