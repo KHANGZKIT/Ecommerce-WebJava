@@ -2,10 +2,13 @@ package com.ecommerce.cartservice.service;
 
 import com.ecommerce.cartservice.client.ProductClient;
 import com.ecommerce.cartservice.dto.*;
+import com.ecommerce.cartservice.exception.ApiException;
 import com.ecommerce.cartservice.exception.CartItemNotFoundException;
+import com.ecommerce.cartservice.exception.CartNotFoundException;
 import com.ecommerce.cartservice.repository.CartRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -42,6 +45,8 @@ public class CartService {
     private final CartRedisRepository cartRedisRepository;
     private final ProductClient productClient;
 
+    public static final int MAX_QUANTITY = 9999;
+
     /** Monotonic ID generator for new cart items within a request. */
     private static final AtomicLong ITEM_ID_SEQ = new AtomicLong(System.currentTimeMillis());
 
@@ -74,9 +79,17 @@ public class CartService {
 
         if (existing.isPresent()) {
             CartItemDto item = existing.get();
-            int newQty = item.getQuantity() + request.getQuantity();
+            long newQtyLong = (long) item.getQuantity() + request.getQuantity();
+            if (newQtyLong > MAX_QUANTITY) {
+                throw new ApiException("Total item quantity cannot exceed " + MAX_QUANTITY, HttpStatus.BAD_REQUEST);
+            }
+            int newQty = (int) newQtyLong;
             item.setQuantity(newQty);
-            item.setSubtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(newQty)));
+            item.setProductName(product.getName());
+            item.setProductSku(product.getSku());
+            item.setUnitPrice(product.getPrice());
+            item.setImageUrl(product.getImageUrl());
+            item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(newQty)));
             log.debug("Incremented qty for product {} in cart for userId={}", request.getProductId(), userId);
         } else {
             BigDecimal subtotal = product.getPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
@@ -113,6 +126,9 @@ public class CartService {
             items.remove(item);
             log.info("Removed item {} from cart for userId={}", itemId, userId);
         } else {
+            if (request.getQuantity() > MAX_QUANTITY) {
+                throw new ApiException("Item quantity cannot exceed " + MAX_QUANTITY, HttpStatus.BAD_REQUEST);
+            }
             item.setQuantity(request.getQuantity());
             item.setSubtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
         }
@@ -150,6 +166,6 @@ public class CartService {
 
     private CartDto requireCart(Long userId) {
         return cartRedisRepository.findByUserId(userId)
-                .orElseThrow(() -> new CartItemNotFoundException("No cart found for user: " + userId));
+                .orElseThrow(() -> new CartNotFoundException("No cart found for user: " + userId));
     }
 }
