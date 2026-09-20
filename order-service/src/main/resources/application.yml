@@ -49,6 +49,8 @@ services:
     url: http://product-service:8082
   payment-service:
     url: http://payment-service:8085
+  cart-service:
+    url: http://cart-service:8083
 
 management:
   endpoints:
@@ -59,3 +61,6 @@ management:
 logging:
   level:
     com.ecommerce.orderservice: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET}

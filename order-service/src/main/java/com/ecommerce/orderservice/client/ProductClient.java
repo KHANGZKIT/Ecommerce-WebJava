@@ -1,7 +1,9 @@
 package com.ecommerce.orderservice.client;
 
-import com.ecommerce.orderservice.dto.ProductResponse;
+import com.ecommerce.orderservice.dto.*;
+import com.ecommerce.orderservice.exception.ApiException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -19,16 +22,25 @@ import java.util.Map;
  *  - {@link #getProductsByIds} replaces N individual calls with one batch request.
  *  - {@link #decrementStockAsync} triggers a non-blocking PATCH; failures are
  *    logged but do NOT block the checkout response (compensated by a scheduled job).
+ *  - {@link #holdStock} atomically reserves inventory with durable operation marker.
+ *  - {@link #releaseStock} releases held inventory on checkout failure.
  */
 @Slf4j
 @Component
 public class ProductClient {
 
     private final WebClient webClient;
+    private final Duration timeout;
 
+    @Autowired
     public ProductClient(WebClient.Builder builder,
                          @Value("${services.product-service.url}") String url) {
+        this(builder, url, Duration.ofSeconds(3));
+    }
+
+    public ProductClient(WebClient.Builder builder, String url, Duration timeout) {
         this.webClient = builder.baseUrl(url).build();
+        this.timeout = timeout != null ? timeout : Duration.ofSeconds(3);
     }
 
     /**
@@ -42,6 +54,7 @@ public class ProductClient {
                     .bodyValue(ids)
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<Map<Long, ProductResponse>>() {})
+                    .timeout(timeout)
                     .block();
         } catch (WebClientResponseException ex) {
             log.error("product-service batch fetch error: {}", ex.getMessage());
@@ -50,22 +63,66 @@ public class ProductClient {
     }
 
     /**
-     * Legacy single-product fetch — kept for backwards compatibility;
-     * prefer {@link #getProductsByIds} for order creation.
+     * Atomically reserves stock in product-service using durable operation marker.
      */
-    public ProductResponse getProductById(Long productId) {
+    public HoldStockResponse holdStock(HoldStockRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("HoldStockRequest cannot be null");
+        }
+        log.info("Calling product-service /hold for operationKey={}", request.getCheckoutOperationKey());
         try {
-            return webClient.get()
-                    .uri("/api/v1/products/{id}", productId)
+            return webClient.post()
+                    .uri("/api/v1/products/hold")
+                    .bodyValue(request)
                     .retrieve()
-                    .bodyToMono(ProductResponse.class)
+                    .bodyToMono(HoldStockResponse.class)
+                    .timeout(timeout)
                     .block();
         } catch (WebClientResponseException ex) {
-            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
-                throw new RuntimeException("Product not found: " + productId);
+            log.error("product-service /hold error: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+            String message = ex.getResponseBodyAsString();
+            if (message == null || message.isBlank()) {
+                message = "Product service error: " + ex.getStatusCode();
             }
-            log.error("product-service error: {}", ex.getMessage());
-            throw new RuntimeException("Product service unavailable");
+            throw new ApiException(message, status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("product-service communication error: {}", ex.getMessage());
+            throw new ApiException("Product service unavailable", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    /**
+     * Releases held stock in product-service using the original operation key.
+     */
+    public ReleaseStockResponse releaseStock(ReleaseStockRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("ReleaseStockRequest cannot be null");
+        }
+        log.info("Calling product-service /release for operationKey={}", request.getCheckoutOperationKey());
+        try {
+            return webClient.post()
+                    .uri("/api/v1/products/release")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(ReleaseStockResponse.class)
+                    .timeout(timeout)
+                    .block();
+        } catch (WebClientResponseException ex) {
+            log.error("product-service /release error: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+            String message = ex.getResponseBodyAsString();
+            if (message == null || message.isBlank()) {
+                message = "Product service error: " + ex.getStatusCode();
+            }
+            throw new ApiException(message, status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("product-service communication error: {}", ex.getMessage());
+            throw new ApiException("Product service unavailable", HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
@@ -83,20 +140,5 @@ public class ProductClient {
                     resp -> log.info("Decremented stock for product {} by {}", productId, quantity),
                     err  -> log.error("Failed to decrement stock for product {}: {}", productId, err.getMessage())
                 );
-    }
-
-    /** Blocking variant kept for compatibility; prefer async above. */
-    public void decrementStock(Long productId, int quantity) {
-        try {
-            webClient.patch()
-                    .uri("/api/v1/products/{id}/inventory", productId)
-                    .bodyValue(java.util.Map.of("quantity", -quantity, "mode", "DELTA"))
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-            log.info("Decremented stock for product {} by {}", productId, quantity);
-        } catch (Exception ex) {
-            log.error("Failed to decrement stock for product {}: {}", productId, ex.getMessage());
-        }
     }
 }

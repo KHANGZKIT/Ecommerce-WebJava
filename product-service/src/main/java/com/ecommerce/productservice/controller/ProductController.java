@@ -60,6 +60,16 @@ public class ProductController {
         return ResponseEntity.ok(productService.getProductsByIds(ids));
     }
 
+    @PostMapping("/hold")
+    public ResponseEntity<HoldStockResponse> holdStock(@Valid @RequestBody HoldStockRequest request) {
+        return ResponseEntity.ok(productService.holdStock(request));
+    }
+
+    @PostMapping("/release")
+    public ResponseEntity<ReleaseStockResponse> releaseStock(@Valid @RequestBody ReleaseStockRequest request) {
+        return ResponseEntity.ok(productService.releaseStock(request));
+    }
+
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody CreateProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(request));

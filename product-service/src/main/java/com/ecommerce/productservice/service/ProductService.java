@@ -1,6 +1,7 @@
 package com.ecommerce.productservice.service;
 
 import com.ecommerce.productservice.dto.*;
+import com.ecommerce.productservice.exception.ApiException;
 import com.ecommerce.productservice.exception.InsufficientStockException;
 import com.ecommerce.productservice.exception.ProductAlreadyExistsException;
 import com.ecommerce.productservice.exception.ProductNotFoundException;
@@ -14,20 +15,43 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ecommerce.productservice.model.ProductOperationMarker;
+import org.springframework.dao.DataIntegrityViolationException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
+    private final ProductOperationService productOperationService;
+
+    @Autowired
+    public ProductService(ProductRepository productRepository, CategoryService categoryService, ProductOperationService productOperationService) {
+        this.productRepository = productRepository;
+        this.categoryService = categoryService;
+        this.productOperationService = productOperationService;
+    }
+
+    public ProductService(ProductRepository productRepository, CategoryService categoryService) {
+        this(productRepository, categoryService, null);
+    }
 
     // -------------------------------------------------------------------------
     // Read operations (cacheable)
@@ -169,6 +193,102 @@ public class ProductService {
         productRepository.save(product);
         log.info("Soft-deleted product id: {}", id);
         return toDto(product);
+    }
+
+    /**
+     * Coordinates atomic stock hold with durable operation marker and idempotency recovery.
+     * 1. Validates checkoutOperationKey and non-empty items.
+     * 2. Aggregates items and computes canonical request fingerprint (SHA-256 of sorted productId:quantity).
+     * 3. Fast-path check for existing marker (read-only): if HELD and fingerprint matches -> replay; if conflict -> 409.
+     * 4. Attempts atomic hold execution via ProductOperationService.executeHoldStock in its own transaction.
+     * 5. If concurrent race triggers DataIntegrityViolationException, catches it outside the failed transaction,
+     *    reads the committed marker in a fresh read transaction, and replays or rejects as conflict.
+     */
+    public HoldStockResponse holdStock(HoldStockRequest request) {
+        if (request == null) {
+            throw new ApiException("Request cannot be null", HttpStatus.BAD_REQUEST);
+        }
+        if (request.getCheckoutOperationKey() == null || request.getCheckoutOperationKey().trim().isEmpty()) {
+            throw new ApiException("Checkout operation key is required", HttpStatus.BAD_REQUEST);
+        }
+        if (request.getCheckoutOperationKey().trim().length() > 128) {
+            throw new ApiException("Checkout operation key must not exceed 128 characters", HttpStatus.BAD_REQUEST);
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new ApiException("Items list cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+
+        String key = request.getCheckoutOperationKey().trim();
+
+        Map<Long, Integer> aggregated = new HashMap<>();
+        for (StockItemRequest item : request.getItems()) {
+            if (item.getProductId() == null) {
+                throw new ApiException("Product ID is required", HttpStatus.BAD_REQUEST);
+            }
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new ApiException("Quantity must be greater than zero for product id: " + item.getProductId(), HttpStatus.BAD_REQUEST);
+            }
+            try {
+                aggregated.merge(item.getProductId(), item.getQuantity(), Math::addExact);
+            } catch (ArithmeticException ex) {
+                throw new ApiException("Quantity overflow for product id: " + item.getProductId(), HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        String fingerprint = computeFingerprint(aggregated);
+
+        // Fast-path read check
+        Optional<ProductOperationMarker> existing = productOperationService.findMarker(key);
+        if (existing.isPresent()) {
+            return productOperationService.replayOrConflict(existing.get(), fingerprint);
+        }
+
+        try {
+            return productOperationService.executeHoldStock(request, aggregated, fingerprint);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Concurrent hold race detected for key {}: {}", key, ex.getMessage());
+            return productOperationService.findMarker(key)
+                    .map(marker -> productOperationService.replayOrConflict(marker, fingerprint))
+                    .orElseThrow(() -> ex);
+        }
+    }
+
+    /**
+     * Coordinates atomic stock release using the durable operation marker.
+     * Validates operation key and delegates to ProductOperationService to restore exact marker quantities.
+     */
+    public ReleaseStockResponse releaseStock(ReleaseStockRequest request) {
+        if (request == null) {
+            throw new ApiException("Request cannot be null", HttpStatus.BAD_REQUEST);
+        }
+        if (request.getCheckoutOperationKey() == null || request.getCheckoutOperationKey().trim().isEmpty()) {
+            throw new ApiException("Checkout operation key is required", HttpStatus.BAD_REQUEST);
+        }
+        if (request.getCheckoutOperationKey().trim().length() > 128) {
+            throw new ApiException("Checkout operation key must not exceed 128 characters", HttpStatus.BAD_REQUEST);
+        }
+
+        return productOperationService.executeReleaseStock(request);
+    }
+
+    public static String computeFingerprint(Map<Long, Integer> aggregated) {
+        String canonical = aggregated.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> e.getKey() + ":" + e.getValue())
+                .collect(Collectors.joining(","));
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(canonical.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 
     // -------------------------------------------------------------------------

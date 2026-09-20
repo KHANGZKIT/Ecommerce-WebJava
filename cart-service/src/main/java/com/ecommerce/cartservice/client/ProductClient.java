@@ -3,6 +3,7 @@ package com.ecommerce.cartservice.client;
 import com.ecommerce.cartservice.dto.ProductResponse;
 import com.ecommerce.cartservice.exception.ProductServiceException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.codec.CodecException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ public class ProductClient {
     private final WebClient webClient;
     private final Duration timeout;
 
+    @Autowired
     public ProductClient(WebClient.Builder builder,
                          @Value("${services.product-service.url}") String productServiceUrl,
                          @Value("${services.product-service.timeout:3s}") Duration timeout) {

@@ -4,6 +4,7 @@ import com.ecommerce.productservice.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -59,4 +60,23 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             """,
             nativeQuery = true)
     Page<Product> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * Atomically holds stock for a product if active and sufficient stock exists.
+     * Returns 1 if stock was held, 0 if product was not found, inactive, or stock was insufficient.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity " +
+           "WHERE p.id = :productId AND p.active = true AND p.stockQuantity >= :quantity")
+    int holdStock(@Param("productId") Long productId, @Param("quantity") int quantity);
+
+    /**
+     * Atomically releases stock for a product up to the maximum supported quantity.
+     * Restores stock regardless of active status (inventory compensation principle).
+     * Returns 1 if stock was restored, 0 if product was not found or quantity exceeds max.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity " +
+           "WHERE p.id = :productId AND (p.stockQuantity + :quantity) <= :maxStock")
+    int releaseStock(@Param("productId") Long productId, @Param("quantity") int quantity, @Param("maxStock") int maxStock);
 }
