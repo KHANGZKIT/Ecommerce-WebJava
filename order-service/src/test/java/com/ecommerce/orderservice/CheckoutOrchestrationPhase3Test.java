@@ -1,12 +1,12 @@
 package com.ecommerce.orderservice;
 
-import com.ecommerce.orderservice.client.CartClient;
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.dto.*;
 import com.ecommerce.orderservice.exception.ApiException;
 import com.ecommerce.orderservice.model.*;
 import com.ecommerce.orderservice.repository.OrderRepository;
+import com.ecommerce.orderservice.service.CartService;
 import com.ecommerce.orderservice.service.OrderIdempotencyService;
 import com.ecommerce.orderservice.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +45,7 @@ class CheckoutOrchestrationPhase3Test {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
-    private CartClient cartClient;
+    private CartService cartService;
 
     @Mock
     private OrderIdempotencyService orderIdempotencyService;
@@ -64,7 +64,7 @@ class CheckoutOrchestrationPhase3Test {
                 productClient,
                 paymentClient,
                 kafkaTemplate,
-                cartClient,
+                cartService,
                 orderIdempotencyService
         );
 
@@ -90,8 +90,8 @@ class CheckoutOrchestrationPhase3Test {
     }
 
     private void mockCartAndProductHold(BigDecimal price, int quantity) {
-        CartItemResponse item = new CartItemResponse(10L, quantity);
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(item)).build());
+        CartItemDto item = CartItemDto.builder().productId(10L).quantity(quantity).build();
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(item)).build());
 
         HeldItemDto heldItem = new HeldItemDto(10L, "Mechanical Keyboard", "KB-01", price, quantity);
         when(productClient.holdStock(any(HoldStockRequest.class))).thenReturn(new HoldStockResponse(List.of(heldItem)));
@@ -134,7 +134,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getPaymentTransactionId()).isEqualTo("txn-success-999");
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.CONFIRMED && "txn-success-999".equals(o.getPaymentTransactionId())));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient).clearCart(bearerToken);
+        verify(cartService).clearCart(userId);
     }
 
     // -------------------------------------------------------------------------
@@ -320,7 +320,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getId()).isEqualTo(888L);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         verify(paymentClient, never()).chargePayment(any());
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(productClient, never()).holdStock(any());
     }
 
@@ -351,7 +351,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getId()).isEqualTo(889L);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
         verify(paymentClient, never()).chargePayment(any());
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(productClient, never()).holdStock(any());
     }
 
@@ -510,7 +510,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getPaymentTransactionId()).isEqualTo("txn-resumed-892");
 
         // Cart and Product hold should NEVER be called on resume
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(productClient, never()).holdStock(any());
 
         // Payment charge MUST be called once with order total
@@ -597,7 +597,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 
@@ -623,7 +623,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 
@@ -691,7 +691,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 
@@ -717,7 +717,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 
@@ -743,7 +743,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 
@@ -769,7 +769,7 @@ class CheckoutOrchestrationPhase3Test {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_UNKNOWN);
         verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.PAYMENT_UNKNOWN));
         verify(productClient, never()).releaseStock(any());
-        verify(cartClient, never()).clearCart(any());
+        verify(cartService, never()).clearCart(any());
         verify(paymentClient, times(1)).chargePayment(any());
     }
 }

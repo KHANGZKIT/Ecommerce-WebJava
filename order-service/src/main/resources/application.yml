@@ -32,6 +32,18 @@ spring:
           order_inserts: true
           order_updates: true
 
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 500ms
+
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -49,8 +61,6 @@ services:
     url: http://product-service:8082
   payment-service:
     url: http://payment-service:8085
-  cart-service:
-    url: http://cart-service:8083
 
 management:
   endpoints:

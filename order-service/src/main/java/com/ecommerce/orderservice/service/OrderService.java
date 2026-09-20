@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
  * API response returns as soon as the order is saved + payment decided.
  * Notifications and stock decrements happen in the background.
  */
-import com.ecommerce.orderservice.client.CartClient;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
@@ -57,7 +56,7 @@ public class OrderService {
     private final ProductClient productClient;
     private final PaymentClient paymentClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final CartClient cartClient;
+    private final CartService cartService;
     private final OrderIdempotencyService orderIdempotencyService;
 
     public OrderService(OrderRepository orderRepository,
@@ -72,13 +71,13 @@ public class OrderService {
                         ProductClient productClient,
                         PaymentClient paymentClient,
                         KafkaTemplate<String, Object> kafkaTemplate,
-                        @Autowired(required = false) CartClient cartClient,
+                        @Autowired(required = false) CartService cartService,
                         @Autowired(required = false) OrderIdempotencyService orderIdempotencyService) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.paymentClient = paymentClient;
         this.kafkaTemplate = kafkaTemplate;
-        this.cartClient = cartClient;
+        this.cartService = cartService;
         this.orderIdempotencyService = orderIdempotencyService;
     }
 
@@ -99,7 +98,7 @@ public class OrderService {
                 if (idempotencyRecord.getCartClearStatus() == CartClearStatus.PENDING) {
                     log.info("Order {} is CONFIRMED with cartClearStatus PENDING. Retrying Cart clear for key {}",
                             existingOrder.getId(), idempotencyKey);
-                    clearCart(bearerToken, idempotencyRecord, idempotencyKey);
+                    clearCart(userId, idempotencyRecord, idempotencyKey);
                 } else {
                     log.info("Returning existing order {} in status CONFIRMED for replayed idempotency key {}",
                             existingOrder.getId(), idempotencyKey);
@@ -122,7 +121,7 @@ public class OrderService {
             return existingOrder;
         }
 
-        CartResponse cart = cartClient.getCart(bearerToken);
+        CartDto cart = cartService != null ? cartService.getCartByUserId(userId) : null;
         if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) {
             throw new IllegalArgumentException("Cart is empty");
         }
@@ -245,7 +244,7 @@ public class OrderService {
                 }
             }
             log.info("Order {} CONFIRMED with txn {}", order.getId(), paymentResp.getTransactionId());
-            clearCart(bearerToken, idempotencyRecord, idempotencyKey);
+            clearCart(order.getUserId(), idempotencyRecord, idempotencyKey);
             return order;
         } else if (PaymentResponse.STATUS_FAILED.equals(paymentResp.getStatus())) {
             order.setStatus(OrderStatus.PAYMENT_FAILED);
@@ -302,12 +301,12 @@ public class OrderService {
         }
     }
 
-    private void clearCart(String bearerToken, OrderIdempotency idempotencyRecord, String idempotencyKey) {
-        if (cartClient == null) {
+    private void clearCart(Long userId, OrderIdempotency idempotencyRecord, String idempotencyKey) {
+        if (cartService == null) {
             return;
         }
         try {
-            cartClient.clearCart(bearerToken);
+            cartService.clearCart(userId);
             if (orderIdempotencyService != null && idempotencyRecord != null && idempotencyRecord.getId() != null) {
                 idempotencyRecord.setCartClearStatus(CartClearStatus.CLEARED);
                 orderIdempotencyService.updateRecoveryMetadata(

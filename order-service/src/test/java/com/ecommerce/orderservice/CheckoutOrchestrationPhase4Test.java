@@ -1,6 +1,5 @@
 package com.ecommerce.orderservice;
 
-import com.ecommerce.orderservice.client.CartClient;
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.controller.OrderController;
@@ -9,6 +8,7 @@ import com.ecommerce.orderservice.exception.ApiException;
 import com.ecommerce.orderservice.model.*;
 import com.ecommerce.orderservice.repository.OrderRepository;
 import com.ecommerce.orderservice.security.OrderPrincipal;
+import com.ecommerce.orderservice.service.CartService;
 import com.ecommerce.orderservice.service.OrderIdempotencyService;
 import com.ecommerce.orderservice.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +48,7 @@ class CheckoutOrchestrationPhase4Test {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
-    private CartClient cartClient;
+    private CartService cartService;
 
     @Mock
     private OrderIdempotencyService orderIdempotencyService;
@@ -68,7 +68,7 @@ class CheckoutOrchestrationPhase4Test {
                 productClient,
                 paymentClient,
                 kafkaTemplate,
-                cartClient,
+                cartService,
                 orderIdempotencyService
         );
         orderController = new OrderController(orderService, orderIdempotencyService);
@@ -98,8 +98,8 @@ class CheckoutOrchestrationPhase4Test {
     }
 
     private void mockCartAndProductHold(BigDecimal price, int quantity) {
-        CartItemResponse item = new CartItemResponse(10L, quantity);
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(item)).build());
+        CartItemDto item = CartItemDto.builder().productId(10L).quantity(quantity).build();
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(item)).build());
 
         HeldItemDto heldItem = new HeldItemDto(10L, "Mechanical Keyboard", "KB-01", price, quantity);
         when(productClient.holdStock(any(HoldStockRequest.class))).thenReturn(new HoldStockResponse(List.of(heldItem)));
@@ -143,7 +143,7 @@ class CheckoutOrchestrationPhase4Test {
         Order result = orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken);
 
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-        verify(cartClient).clearCart(bearerToken);
+        verify(cartService).clearCart(userId);
         verify(orderIdempotencyService).updateRecoveryMetadata(
                 eq(record.getId()), eq(idempotencyKey), any(), any(), eq(CartClearStatus.CLEARED));
         verify(productClient, never()).releaseStock(any());
@@ -154,7 +154,7 @@ class CheckoutOrchestrationPhase4Test {
     // 2. paymentSuccess_clearsCartUsingVerifiedBearerToken
     // -------------------------------------------------------------------------
     @Test
-    @DisplayName("2. Cart clear uses the verified customer Bearer token without passing customer/item parameters")
+    @DisplayName("2. Cart clear uses the authenticated customer userId without passing external parameters")
     void paymentSuccess_clearsCartUsingVerifiedBearerToken() {
         OrderIdempotency record = mockNewIdempotencyRecord();
         mockCartAndProductHold(new BigDecimal("100.00"), 1);
@@ -163,9 +163,7 @@ class CheckoutOrchestrationPhase4Test {
 
         orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken);
 
-        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(cartClient).clearCart(tokenCaptor.capture());
-        assertThat(tokenCaptor.getValue()).isEqualTo(bearerToken);
+        verify(cartService).clearCart(userId);
     }
 
     // -------------------------------------------------------------------------
@@ -179,8 +177,8 @@ class CheckoutOrchestrationPhase4Test {
         mockOrderPersistence(record, new BigDecimal("100.00"));
         mockPaymentSuccess();
 
-        doThrow(new ApiException("Cart service unavailable", HttpStatus.SERVICE_UNAVAILABLE))
-                .when(cartClient).clearCart(any());
+        doThrow(new RuntimeException("Cart service unavailable"))
+                .when(cartService).clearCart(anyLong());
 
         Order result = orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken);
 
@@ -208,8 +206,8 @@ class CheckoutOrchestrationPhase4Test {
         }).when(orderIdempotencyService).updateRecoveryMetadata(
                 eq(record.getId()), eq(idempotencyKey), any(), any(), eq(CartClearStatus.PENDING));
 
-        doThrow(new ApiException("Cart service unavailable", HttpStatus.SERVICE_UNAVAILABLE))
-                .when(cartClient).clearCart(any());
+        doThrow(new RuntimeException("Cart service unavailable"))
+                .when(cartService).clearCart(anyLong());
 
         ResponseEntity<Map<String, Object>> response = orderController.checkout(
                 idempotencyKey, bearerToken, sampleRequest, new OrderPrincipal(userId, "customer@example.com"));
@@ -247,7 +245,7 @@ class CheckoutOrchestrationPhase4Test {
 
         assertThat(result.getId()).isEqualTo(888L);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-        verify(cartClient, times(1)).clearCart(bearerToken);
+        verify(cartService, times(1)).clearCart(userId);
     }
 
     // -------------------------------------------------------------------------
@@ -335,7 +333,7 @@ class CheckoutOrchestrationPhase4Test {
 
         orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken);
 
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
     }
 
     // -------------------------------------------------------------------------
@@ -372,7 +370,7 @@ class CheckoutOrchestrationPhase4Test {
 
         assertThat(result.getId()).isEqualTo(888L);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-        verify(cartClient, times(1)).clearCart(bearerToken);
+        verify(cartService, times(1)).clearCart(userId);
         verify(orderIdempotencyService).updateRecoveryMetadata(
                 eq(record.getId()), eq(idempotencyKey), any(), any(), eq(CartClearStatus.CLEARED));
     }
@@ -403,8 +401,8 @@ class CheckoutOrchestrationPhase4Test {
         lenient().when(orderIdempotencyService.find(eq(userId), eq(idempotencyKey)))
                 .thenReturn(Optional.of(record));
 
-        doThrow(new ApiException("Cart service unavailable", HttpStatus.SERVICE_UNAVAILABLE))
-                .when(cartClient).clearCart(any());
+        doThrow(new RuntimeException("Cart service unavailable"))
+                .when(cartService).clearCart(anyLong());
 
         ResponseEntity<Map<String, Object>> response = orderController.checkout(
                 idempotencyKey, bearerToken, sampleRequest, new OrderPrincipal(userId, "customer@example.com"));
@@ -443,8 +441,8 @@ class CheckoutOrchestrationPhase4Test {
 
         assertThat(result.getId()).isEqualTo(888L);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-        verify(cartClient, never()).clearCart(any());
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).clearCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(paymentClient, never()).chargePayment(any());
         verify(productClient, never()).holdStock(any());
         verify(productClient, never()).releaseStock(any());

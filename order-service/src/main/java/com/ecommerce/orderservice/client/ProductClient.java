@@ -63,6 +63,35 @@ public class ProductClient {
     }
 
     /**
+     * Single-product fetch — used by CartService to get live product details on item addition.
+     */
+    public ProductResponse getProductById(Long productId) {
+        log.debug("Fetching product {} from product-service", productId);
+        try {
+            return webClient.get()
+                    .uri("/api/v1/products/{id}", productId)
+                    .retrieve()
+                    .bodyToMono(ProductResponse.class)
+                    .timeout(timeout)
+                    .block();
+        } catch (WebClientResponseException ex) {
+            log.error("Product service error fetching product {}: status={}, body={}",
+                    productId, ex.getStatusCode(), ex.getResponseBodyAsString());
+            HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+            String message = ex.getResponseBodyAsString();
+            if (message == null || message.isBlank()) {
+                message = "Product service error: " + ex.getStatusCode();
+            }
+            throw new ApiException(message, status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Unexpected error fetching product {}: {}", productId, ex.getMessage());
+            throw new ApiException("Product service unavailable", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    /**
      * Atomically reserves stock in product-service using durable operation marker.
      */
     public HoldStockResponse holdStock(HoldStockRequest request) {

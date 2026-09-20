@@ -1,12 +1,12 @@
 package com.ecommerce.orderservice;
 
-import com.ecommerce.orderservice.client.CartClient;
 import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.dto.*;
 import com.ecommerce.orderservice.exception.ApiException;
 import com.ecommerce.orderservice.model.*;
 import com.ecommerce.orderservice.repository.OrderRepository;
+import com.ecommerce.orderservice.service.CartService;
 import com.ecommerce.orderservice.service.OrderIdempotencyService;
 import com.ecommerce.orderservice.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +45,7 @@ class CheckoutOrchestrationPhase2Test {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
-    private CartClient cartClient;
+    private CartService cartService;
 
     @Mock
     private OrderIdempotencyService orderIdempotencyService;
@@ -64,7 +64,7 @@ class CheckoutOrchestrationPhase2Test {
                 productClient,
                 paymentClient,
                 kafkaTemplate,
-                cartClient,
+                cartService,
                 orderIdempotencyService
         );
 
@@ -94,13 +94,13 @@ class CheckoutOrchestrationPhase2Test {
     @DisplayName("1. Empty cart rejected with 400 Bad Request; no Product HOLD or Order persistence")
     void checkout_whenCartIsEmpty_rejectsCheckoutWithBadRequest_andDoesNotCallProductOrSaveOrder() {
         mockNewIdempotencyRecord();
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(Collections.emptyList()).build());
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(Collections.emptyList()).build());
 
         assertThatThrownBy(() -> orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("empty");
 
-        verify(cartClient).getCart(bearerToken);
+        verify(cartService).getCartByUserId(userId);
         verify(productClient, never()).holdStock(any());
         verify(orderRepository, never()).save(any());
         verify(orderIdempotencyService, never()).persistPendingOrderAndLink(any(), any(), any(), any());
@@ -110,12 +110,12 @@ class CheckoutOrchestrationPhase2Test {
     // 2. Cart called with verified Bearer token
     // -------------------------------------------------------------------------
     @Test
-    @DisplayName("2. Cart is fetched using the caller's verified Bearer token")
+    @DisplayName("2. Cart is fetched by userId from internal CartService")
     void checkout_fetchesCartUsingVerifiedBearerToken() {
         OrderIdempotency record = mockNewIdempotencyRecord();
 
-        CartItemResponse item = new CartItemResponse(10L, 2);
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(item)).build());
+        CartItemDto item = CartItemDto.builder().productId(10L).quantity(2).build();
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(item)).build());
 
         HeldItemDto heldItem = new HeldItemDto(10L, "Keyboard", "KB-01", new BigDecimal("45.00"), 2);
         HoldStockResponse holdResponse = new HoldStockResponse(List.of(heldItem));
@@ -127,7 +127,7 @@ class CheckoutOrchestrationPhase2Test {
 
         orderService.checkout(userId, idempotencyKey, sampleRequest, bearerToken);
 
-        verify(cartClient).getCart(bearerToken);
+        verify(cartService).getCartByUserId(userId);
     }
 
     // -------------------------------------------------------------------------
@@ -138,9 +138,9 @@ class CheckoutOrchestrationPhase2Test {
     void checkout_holdsProductStockWithCartQuantitiesAndIdempotencyKey() {
         OrderIdempotency record = mockNewIdempotencyRecord();
 
-        CartItemResponse item1 = new CartItemResponse(101L, 3);
-        CartItemResponse item2 = new CartItemResponse(102L, 1);
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(item1, item2)).build());
+        CartItemDto item1 = CartItemDto.builder().productId(101L).quantity(3).build();
+        CartItemDto item2 = CartItemDto.builder().productId(102L).quantity(1).build();
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(item1, item2)).build());
 
         HeldItemDto h1 = new HeldItemDto(101L, "Mouse", "MS-01", new BigDecimal("15.00"), 3);
         HeldItemDto h2 = new HeldItemDto(102L, "Pad", "PD-01", new BigDecimal("5.00"), 1);
@@ -173,9 +173,9 @@ class CheckoutOrchestrationPhase2Test {
     void checkout_createsOrderUsingProductAuthoritativePriceAndCalculatesTotal() {
         OrderIdempotency record = mockNewIdempotencyRecord();
 
-        CartItemResponse item1 = new CartItemResponse(10L, 2);
-        CartItemResponse item2 = new CartItemResponse(20L, 3);
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(item1, item2)).build());
+        CartItemDto item1 = CartItemDto.builder().productId(10L).quantity(2).build();
+        CartItemDto item2 = CartItemDto.builder().productId(20L).quantity(3).build();
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(item1, item2)).build());
 
         // Authoritative product prices: 100.00 and 25.50
         HeldItemDto h1 = new HeldItemDto(10L, "Monitor", "MN-01", new BigDecimal("100.00"), 2);
@@ -214,7 +214,7 @@ class CheckoutOrchestrationPhase2Test {
     void checkout_createsOrderWithPendingStatus() {
         OrderIdempotency record = mockNewIdempotencyRecord();
 
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(new CartItemResponse(1L, 1))).build());
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(CartItemDto.builder().productId(1L).quantity(1).build())).build());
         when(productClient.holdStock(any())).thenReturn(new HoldStockResponse(List.of(
                 new HeldItemDto(1L, "Widget", "WD-01", new BigDecimal("10.00"), 1)
         )));
@@ -243,7 +243,7 @@ class CheckoutOrchestrationPhase2Test {
         when(orderIdempotencyService.getOrCreate(eq(authenticatedPrincipalId), eq(idempotencyKey), any()))
                 .thenReturn(record);
 
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(new CartItemResponse(1L, 1))).build());
+        when(cartService.getCartByUserId(authenticatedPrincipalId)).thenReturn(CartDto.builder().userId(authenticatedPrincipalId).items(List.of(CartItemDto.builder().productId(1L).quantity(1).build())).build());
         when(productClient.holdStock(any())).thenReturn(new HoldStockResponse(List.of(
                 new HeldItemDto(1L, "Widget", "WD-01", new BigDecimal("10.00"), 1)
         )));
@@ -285,7 +285,7 @@ class CheckoutOrchestrationPhase2Test {
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(777L);
 
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(productClient, never()).holdStock(any());
         verify(orderIdempotencyService, never()).persistPendingOrderAndLink(any(), any(), any(), any());
     }
@@ -303,7 +303,7 @@ class CheckoutOrchestrationPhase2Test {
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
 
-        verify(cartClient, never()).getCart(any());
+        verify(cartService, never()).getCartByUserId(any());
         verify(productClient, never()).holdStock(any());
     }
 
@@ -314,7 +314,7 @@ class CheckoutOrchestrationPhase2Test {
     @DisplayName("9. Downstream Product HOLD failure throws original error and persists no Order")
     void checkout_whenProductHoldFails_createsNoOrderAndPreservesProductError() {
         mockNewIdempotencyRecord();
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(new CartItemResponse(1L, 100))).build());
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(CartItemDto.builder().productId(1L).quantity(100).build())).build());
 
         when(productClient.holdStock(any()))
                 .thenThrow(new ApiException("Insufficient stock for product: 1", HttpStatus.BAD_REQUEST));
@@ -334,7 +334,7 @@ class CheckoutOrchestrationPhase2Test {
     @DisplayName("10. Order persistence failure after successful HOLD attempts Product RELEASE and rethrows original exception")
     void checkout_whenOrderPersistenceFailsAfterHold_attemptsProductReleaseAndPropagatesOriginalError() {
         OrderIdempotency record = mockNewIdempotencyRecord();
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(new CartItemResponse(1L, 1))).build());
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(CartItemDto.builder().productId(1L).quantity(1).build())).build());
         when(productClient.holdStock(any())).thenReturn(new HoldStockResponse(List.of(
                 new HeldItemDto(1L, "Widget", "WD-01", new BigDecimal("10.00"), 1)
         )));
@@ -358,7 +358,7 @@ class CheckoutOrchestrationPhase2Test {
     @DisplayName("11. If Product RELEASE fails during compensation, the original Order persistence error is preserved")
     void checkout_whenProductReleaseFailsDuringCompensation_propagatesOriginalPersistenceError() {
         OrderIdempotency record = mockNewIdempotencyRecord();
-        when(cartClient.getCart(bearerToken)).thenReturn(CartResponse.builder().items(List.of(new CartItemResponse(1L, 1))).build());
+        when(cartService.getCartByUserId(userId)).thenReturn(CartDto.builder().userId(userId).items(List.of(CartItemDto.builder().productId(1L).quantity(1).build())).build());
         when(productClient.holdStock(any())).thenReturn(new HoldStockResponse(List.of(
                 new HeldItemDto(1L, "Widget", "WD-01", new BigDecimal("10.00"), 1)
         )));

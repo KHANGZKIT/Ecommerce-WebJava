@@ -68,7 +68,7 @@ spring:
         # Cart Service (rate limited per user)
         # ─────────────────────────────────────────────────────────────────────
         - id: cart-service
-          uri: http://cart-service:8083
+          uri: http://order-service:8084
           predicates:
             - Path=/api/v1/cart/**
           filters:

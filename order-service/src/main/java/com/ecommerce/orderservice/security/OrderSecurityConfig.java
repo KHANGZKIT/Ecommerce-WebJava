@@ -35,7 +35,7 @@ public class OrderSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**",
                                 "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll()
-                        .requestMatchers("/api/v1/orders/checkout", "/api/v1/checkout").authenticated()
+                        .requestMatchers("/api/v1/orders/checkout", "/api/v1/checkout", "/api/v1/cart", "/api/v1/cart/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(new OrderJwtAuthenticationFilter(verifier, unauthorized),
                         UsernamePasswordAuthenticationFilter.class)

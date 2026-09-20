@@ -7,14 +7,11 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-/**
- * Client DTO representing an item in the Cart Service API response.
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CartItemResponse {
+public class CartItemDto {
     private Long id;
     private Long productId;
     private String productName;
@@ -23,9 +20,4 @@ public class CartItemResponse {
     private Integer quantity;
     private BigDecimal subtotal;
     private String imageUrl;
-
-    public CartItemResponse(Long productId, Integer quantity) {
-        this.productId = productId;
-        this.quantity = quantity;
-    }
 }

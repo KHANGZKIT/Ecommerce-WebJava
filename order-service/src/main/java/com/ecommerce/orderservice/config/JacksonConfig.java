@@ -24,6 +24,30 @@ public class JacksonConfig {
         return module;
     }
 
+    public static class StrictIntegerDeserializer extends JsonDeserializer<Integer> {
+        @Override
+        public Integer deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+            JsonToken token = p.currentToken();
+            if (token == JsonToken.VALUE_NUMBER_FLOAT) {
+                throw MismatchedInputException.from(p, Integer.class,
+                        "Fractional numbers are not allowed for integer fields: " + p.getText());
+            }
+            if (token == JsonToken.VALUE_NUMBER_INT) {
+                try {
+                    return p.getIntValue();
+                } catch (Exception ex) {
+                    throw MismatchedInputException.from(p, Integer.class,
+                            "Integer value out of range: " + p.getText());
+                }
+            }
+            if (token == JsonToken.VALUE_NULL) {
+                return null;
+            }
+            throw MismatchedInputException.from(p, Integer.class,
+                    "Expected an integer value but got: " + token.name().toLowerCase().replace('_', ' '));
+        }
+    }
+
     public static class StringTrimmerDeserializer extends StdScalarDeserializer<String> implements ContextualDeserializer {
         private final boolean shouldTrim;
 
