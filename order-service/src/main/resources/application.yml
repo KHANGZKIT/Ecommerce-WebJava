@@ -44,11 +44,6 @@ spring:
           min-idle: 2
           max-wait: 500ms
 
-  kafka:
-    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      acks: all
-      retries: 3
 
   jackson:
     deserialization:

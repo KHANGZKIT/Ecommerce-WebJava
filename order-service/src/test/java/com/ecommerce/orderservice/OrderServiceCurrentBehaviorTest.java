@@ -2,10 +2,9 @@ package com.ecommerce.orderservice;
 
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.ProductClient;
-import com.ecommerce.orderservice.config.KafkaProducerConfig;
+
 import com.ecommerce.orderservice.dto.*;
-import com.ecommerce.orderservice.event.OrderConfirmedEvent;
-import com.ecommerce.orderservice.event.OrderFailedEvent;
+
 import com.ecommerce.orderservice.exception.OrderNotFoundException;
 import com.ecommerce.orderservice.exception.OrderStatusException;
 import com.ecommerce.orderservice.model.Order;
@@ -24,7 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.kafka.core.KafkaTemplate;
+
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -52,8 +51,6 @@ class OrderServiceCurrentBehaviorTest {
     @Mock
     private PaymentClient paymentClient;
 
-    @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @InjectMocks
     private OrderService orderService;
@@ -118,18 +115,6 @@ class OrderServiceCurrentBehaviorTest {
         assertThat(result.getItems().get(0).getSubtotal()).isEqualByComparingTo("50.00");
 
         verify(productClient).decrementStockAsync(10L, 2);
-
-        ArgumentCaptor<OrderConfirmedEvent> eventCaptor = ArgumentCaptor.forClass(OrderConfirmedEvent.class);
-        verify(kafkaTemplate).send(
-                eq(KafkaProducerConfig.TOPIC_ORDER_CONFIRMED),
-                eq("501"),
-                eventCaptor.capture()
-        );
-        OrderConfirmedEvent capturedEvent = eventCaptor.getValue();
-        assertThat(capturedEvent.getOrderId()).isEqualTo(501L);
-        assertThat(capturedEvent.getUserId()).isEqualTo(101L);
-        assertThat(capturedEvent.getTransactionId()).isEqualTo("TXN-PAY-999");
-        assertThat(capturedEvent.getTotalAmount()).isEqualByComparingTo("50.00");
     }
 
     @Test
@@ -160,17 +145,6 @@ class OrderServiceCurrentBehaviorTest {
         assertThat(result.getPaymentTransactionId()).isNull();
 
         verify(productClient, never()).decrementStockAsync(anyLong(), anyInt());
-
-        ArgumentCaptor<OrderFailedEvent> eventCaptor = ArgumentCaptor.forClass(OrderFailedEvent.class);
-        verify(kafkaTemplate).send(
-                eq(KafkaProducerConfig.TOPIC_ORDER_FAILED),
-                eq("502"),
-                eventCaptor.capture()
-        );
-        OrderFailedEvent capturedEvent = eventCaptor.getValue();
-        assertThat(capturedEvent.getOrderId()).isEqualTo(502L);
-        assertThat(capturedEvent.getUserId()).isEqualTo(102L);
-        assertThat(capturedEvent.getReason()).isEqualTo("Card declined by bank");
     }
 
     @Test
@@ -227,7 +201,6 @@ class OrderServiceCurrentBehaviorTest {
 
         verifyNoInteractions(orderRepository);
         verifyNoInteractions(paymentClient);
-        verifyNoInteractions(kafkaTemplate);
     }
 
     @Test
@@ -318,7 +291,6 @@ class OrderServiceCurrentBehaviorTest {
                 .hasMessageContaining("Payment service connection timed out");
 
         verify(productClient, never()).decrementStockAsync(anyLong(), anyInt());
-        verifyNoInteractions(kafkaTemplate);
     }
 
     @Test

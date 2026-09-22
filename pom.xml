@@ -15,10 +15,8 @@
         <module>api-gateway</module>
         <module>user-service</module>
         <module>product-service</module>
-        <module>cart-service</module>
         <module>order-service</module>
         <module>payment-service</module>
-        <module>notification-service</module>
     </modules>
 
     <properties>
@@ -32,7 +30,7 @@
         <lombok.version>1.18.30</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <springdoc.version>2.3.0</springdoc.version>
-        <kafka.version>3.6.1</kafka.version>
+
     </properties>
 
     <dependencyManagement>
@@ -86,12 +84,7 @@
                 <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
                 <version>${springdoc.version}</version>
             </dependency>
-            <!-- Spring Kafka -->
-            <dependency>
-                <groupId>org.springframework.kafka</groupId>
-                <artifactId>spring-kafka</artifactId>
-                <version>${spring-boot.version}</version>
-            </dependency>
+
             <!-- Spring Data Redis (reactive + non-reactive covered by Spring Boot BOM) -->
             <dependency>
                 <groupId>io.lettuce</groupId>

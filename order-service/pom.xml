@@ -12,7 +12,7 @@
 
     <artifactId>order-service</artifactId>
     <name>Order Service</name>
-    <description>Handles checkout flow, order lifecycle, and communicates with payment + notification services</description>
+    <description>Handles checkout flow, order lifecycle, cart, and communicates with payment service</description>
 
     <dependencies>
         <dependency>
@@ -37,11 +37,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
-        <!-- Kafka for async event publishing -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

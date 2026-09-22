@@ -20,7 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
+
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,8 +44,6 @@ class CheckoutOrchestrationPhase4Test {
     @Mock
     private PaymentClient paymentClient;
 
-    @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
     private CartService cartService;
@@ -67,7 +65,6 @@ class CheckoutOrchestrationPhase4Test {
                 orderRepository,
                 productClient,
                 paymentClient,
-                kafkaTemplate,
                 cartService,
                 orderIdempotencyService
         );

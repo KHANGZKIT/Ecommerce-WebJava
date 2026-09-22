@@ -7,10 +7,8 @@ COPY pom.xml .
 COPY api-gateway/pom.xml          api-gateway/
 COPY user-service/pom.xml         user-service/
 COPY product-service/pom.xml      product-service/
-COPY cart-service/pom.xml         cart-service/
 COPY order-service/pom.xml        order-service/
 COPY payment-service/pom.xml      payment-service/
-COPY notification-service/pom.xml notification-service/
 
 # 2. Resolve ALL dependencies offline and cache them in a BuildKit mount.
 #    This layer is only invalidated when a pom.xml changes — NOT on src/ changes.

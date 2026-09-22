@@ -2,10 +2,7 @@ package com.ecommerce.orderservice.service;
 
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.ProductClient;
-import com.ecommerce.orderservice.config.KafkaProducerConfig;
 import com.ecommerce.orderservice.dto.*;
-import com.ecommerce.orderservice.event.OrderConfirmedEvent;
-import com.ecommerce.orderservice.event.OrderFailedEvent;
 import com.ecommerce.orderservice.exception.OrderNotFoundException;
 import com.ecommerce.orderservice.exception.OrderStatusException;
 import com.ecommerce.orderservice.model.CartClearStatus;
@@ -19,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.kafka.core.KafkaTemplate;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,18 +30,12 @@ import java.util.stream.Collectors;
 /**
  * Order service — orchestrates the checkout flow:
  *
- * BEFORE (synchronous):
- *   N × product-service calls → payment-service → N × stock decrement → notification-service
- *   Latency = sum of all remote calls; threads blocked throughout.
- *
- * AFTER (optimised):
  *   1 × batch product-service call  (fixes N+1)
  *   → payment-service
  *   → N × async stock decrement     (non-blocking; fire-and-forget)
- *   → Kafka event                   (notification-service consumes asynchronously)
  *
  * API response returns as soon as the order is saved + payment decided.
- * Notifications and stock decrements happen in the background.
+ * Stock decrements happen in the background.
  */
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -55,28 +46,24 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final PaymentClient paymentClient;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final CartService cartService;
     private final OrderIdempotencyService orderIdempotencyService;
 
     public OrderService(OrderRepository orderRepository,
                         ProductClient productClient,
-                        PaymentClient paymentClient,
-                        KafkaTemplate<String, Object> kafkaTemplate) {
-        this(orderRepository, productClient, paymentClient, kafkaTemplate, null, null);
+                        PaymentClient paymentClient) {
+        this(orderRepository, productClient, paymentClient, null, null);
     }
 
     @Autowired
     public OrderService(OrderRepository orderRepository,
                         ProductClient productClient,
                         PaymentClient paymentClient,
-                        KafkaTemplate<String, Object> kafkaTemplate,
                         @Autowired(required = false) CartService cartService,
                         @Autowired(required = false) OrderIdempotencyService orderIdempotencyService) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.paymentClient = paymentClient;
-        this.kafkaTemplate = kafkaTemplate;
         this.cartService = cartService;
         this.orderIdempotencyService = orderIdempotencyService;
     }
@@ -403,32 +390,10 @@ public class OrderService {
                 productClient.decrementStockAsync(item.getProductId(), item.getQuantity());
             }
 
-            // Publish event → notification-service consumes from Kafka
-            kafkaTemplate.send(
-                KafkaProducerConfig.TOPIC_ORDER_CONFIRMED,
-                String.valueOf(order.getId()),
-                OrderConfirmedEvent.builder()
-                    .orderId(order.getId())
-                    .userId(request.getUserId())
-                    .transactionId(paymentResp.getTransactionId())
-                    .totalAmount(total)
-                    .build()
-            );
-
         // ── Step 5b: Payment failed ────────────────────────────────────────────
         } else {
             order.setStatus(OrderStatus.PAYMENT_FAILED);
             log.warn("Order {} PAYMENT_FAILED: {}", order.getId(), paymentResp.getMessage());
-
-            kafkaTemplate.send(
-                KafkaProducerConfig.TOPIC_ORDER_FAILED,
-                String.valueOf(order.getId()),
-                OrderFailedEvent.builder()
-                    .orderId(order.getId())
-                    .userId(request.getUserId())
-                    .reason(paymentResp.getMessage())
-                    .build()
-            );
         }
 
         return toDto(orderRepository.save(order));
