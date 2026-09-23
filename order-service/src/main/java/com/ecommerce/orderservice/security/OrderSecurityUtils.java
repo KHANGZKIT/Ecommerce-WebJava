@@ -20,7 +20,20 @@ public final class OrderSecurityUtils {
         throw new BadCredentialsException("Authenticated OrderPrincipal not found");
     }
 
+    public static OrderPrincipal findAuthenticatedPrincipal() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof OrderPrincipal principal) {
+            return principal;
+        }
+        return null;
+    }
+
     public static long getAuthenticatedUserId() {
         return getAuthenticatedPrincipal().userId();
+    }
+
+    public static boolean isCurrentUserAdmin() {
+        OrderPrincipal principal = findAuthenticatedPrincipal();
+        return principal != null && principal.isAdmin();
     }
 }

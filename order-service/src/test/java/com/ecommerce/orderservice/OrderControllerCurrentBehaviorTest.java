@@ -51,6 +51,22 @@ class OrderControllerCurrentBehaviorTest {
                 .build();
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    private void setAuthenticatedUser(long userId, String role) {
+        com.ecommerce.orderservice.security.OrderPrincipal principal =
+                new com.ecommerce.orderservice.security.OrderPrincipal(userId, "user" + userId + "@example.com", role);
+        var authorities = "ADMIN".equalsIgnoreCase(role)
+                ? List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
+                          new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"))
+                : List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"));
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal, null, authorities);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
     @Test
     void createOrder_acceptsUserIdFromRequestBodyWithoutSecurityContext() throws Exception {
         String requestJson = """
@@ -113,13 +129,13 @@ class OrderControllerCurrentBehaviorTest {
     }
 
     @Test
-    void getOrdersByUser_allowsQueryingAnyUserIdViaPathVariable() throws Exception {
+    void getOrdersByUser_allowsQueryingOwnUserIdViaPathVariable() throws Exception {
+        setAuthenticatedUser(888L, "CUSTOMER");
         OrderDto dto = OrderDto.builder().id(20L).userId(888L).status(OrderStatus.CONFIRMED).build();
         PageRequest pageRequest = PageRequest.of(0, 10);
         when(orderService.getOrdersByUserId(eq(888L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto), pageRequest, 1));
 
-        // Documenting current behavior: any caller can query any userId's orders
         mockMvc.perform(get("/api/v1/orders/user/888"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(20))
@@ -127,7 +143,17 @@ class OrderControllerCurrentBehaviorTest {
     }
 
     @Test
-    void getOrderById_whenFound_returns200() throws Exception {
+    void getOrdersByUser_whenQueryingAnotherUserId_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(999L, "CUSTOMER");
+        mockMvc.perform(get("/api/v1/orders/user/888"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to user orders"));
+    }
+
+    @Test
+    void getOrderById_whenFoundAndOwned_returns200() throws Exception {
+        setAuthenticatedUser(101L, "CUSTOMER");
         OrderDto dto = OrderDto.builder().id(15L).userId(101L).status(OrderStatus.CONFIRMED).build();
         when(orderService.getOrderById(15L)).thenReturn(dto);
 
@@ -138,7 +164,20 @@ class OrderControllerCurrentBehaviorTest {
     }
 
     @Test
+    void getOrderById_whenOwnedByAnotherUser_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(999L, "CUSTOMER");
+        OrderDto dto = OrderDto.builder().id(15L).userId(101L).status(OrderStatus.CONFIRMED).build();
+        when(orderService.getOrderById(15L)).thenReturn(dto);
+
+        mockMvc.perform(get("/api/v1/orders/15"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to order 15"));
+    }
+
+    @Test
     void getOrderById_whenNotFound_returns404() throws Exception {
+        setAuthenticatedUser(101L, "CUSTOMER");
         when(orderService.getOrderById(999L)).thenThrow(new OrderNotFoundException("Order not found: 999"));
 
         mockMvc.perform(get("/api/v1/orders/999"))
@@ -149,8 +188,11 @@ class OrderControllerCurrentBehaviorTest {
 
     @Test
     void cancelOrder_returnsOkWithCancelledOrderDto() throws Exception {
-        OrderDto dto = OrderDto.builder().id(30L).status(OrderStatus.CANCELLED).build();
-        when(orderService.cancelOrder(30L)).thenReturn(dto);
+        setAuthenticatedUser(101L, "CUSTOMER");
+        OrderDto existingDto = OrderDto.builder().id(30L).userId(101L).status(OrderStatus.CONFIRMED).build();
+        OrderDto cancelledDto = OrderDto.builder().id(30L).userId(101L).status(OrderStatus.CANCELLED).build();
+        when(orderService.getOrderById(30L)).thenReturn(existingDto);
+        when(orderService.cancelOrder(30L)).thenReturn(cancelledDto);
 
         mockMvc.perform(post("/api/v1/orders/30/cancel"))
                 .andExpect(status().isOk())
@@ -159,7 +201,22 @@ class OrderControllerCurrentBehaviorTest {
     }
 
     @Test
+    void cancelOrder_whenOwnedByAnotherUser_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(999L, "CUSTOMER");
+        OrderDto existingDto = OrderDto.builder().id(30L).userId(101L).status(OrderStatus.CONFIRMED).build();
+        when(orderService.getOrderById(30L)).thenReturn(existingDto);
+
+        mockMvc.perform(post("/api/v1/orders/30/cancel"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to cancel order 30"));
+    }
+
+    @Test
     void cancelOrder_whenStatusInvalid_returns422UnprocessableEntity() throws Exception {
+        setAuthenticatedUser(101L, "CUSTOMER");
+        OrderDto existingDto = OrderDto.builder().id(31L).userId(101L).status(OrderStatus.DELIVERED).build();
+        when(orderService.getOrderById(31L)).thenReturn(existingDto);
         when(orderService.cancelOrder(31L))
                 .thenThrow(new OrderStatusException("Cannot cancel order in status: DELIVERED"));
 
@@ -170,7 +227,8 @@ class OrderControllerCurrentBehaviorTest {
     }
 
     @Test
-    void updateStatus_acceptsStatusRequestParamAndReturnsOk() throws Exception {
+    void updateStatus_acceptsStatusRequestParamAndReturnsOkForAdmin() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
         OrderDto dto = OrderDto.builder().id(40L).status(OrderStatus.SHIPPED).build();
         when(orderService.updateOrderStatus(40L, OrderStatus.SHIPPED)).thenReturn(dto);
 
@@ -178,5 +236,15 @@ class OrderControllerCurrentBehaviorTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(40))
                 .andExpect(jsonPath("$.status").value("SHIPPED"));
+    }
+
+    @Test
+    void updateStatus_whenCustomer_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(101L, "CUSTOMER");
+
+        mockMvc.perform(patch("/api/v1/orders/40/status").param("status", "SHIPPED"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Admin access required to update order status"));
     }
 }

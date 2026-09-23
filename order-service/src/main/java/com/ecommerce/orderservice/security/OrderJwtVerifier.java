@@ -36,6 +36,8 @@ public class OrderJwtVerifier {
                 || ((Number) id).longValue() <= 0) {
             throw new IllegalArgumentException("Invalid JWT identity");
         }
-        return new OrderPrincipal(((Number) id).longValue(), claims.getSubject());
+        Object roleObj = claims.get("role");
+        String role = (roleObj != null && !roleObj.toString().isBlank()) ? roleObj.toString() : "CUSTOMER";
+        return new OrderPrincipal(((Number) id).longValue(), claims.getSubject(), role);
     }
 }

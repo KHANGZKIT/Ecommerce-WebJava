@@ -41,12 +41,17 @@ class UserIdentityTokenTest {
     }
 
     private void assertIdentity(String token, long id) {
+        assertIdentity(token, id, "CUSTOMER");
+    }
+
+    private void assertIdentity(String token, long id, String expectedRole) {
         var claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
         assertEquals("a@example.com", claims.getSubject());
         assertEquals(id, ((Number) claims.get("userId")).longValue());
+        assertEquals(expectedRole, claims.get("role"));
         assertEquals(1800000L, claims.getExpiration().getTime() - claims.getIssuedAt().getTime());
         var details = org.springframework.security.core.userdetails.User.withUsername("a@example.com")
-                .password("encoded").roles("CUSTOMER").build();
+                .password("encoded").roles(expectedRole).build();
         assertTrue(jwt.isTokenValid(token, details));
     }
 
@@ -83,6 +88,18 @@ class UserIdentityTokenTest {
         order.verify(repository).findByEmail("a@example.com");
         assertIdentity(response.getAccessToken(), 42L);
         assertEquals(42L, response.getUser().getId());
+    }
+
+    @Test
+    void loginWithAdminRoleIssuesAdminRoleClaim() {
+        when(repository.findByEmail("a@example.com")).thenReturn(Optional.of(User.builder()
+                .id(99L).email("a@example.com").password("encoded").role(UserRole.ADMIN).build()));
+        LoginRequest request = new LoginRequest();
+        request.setEmail("A@EXAMPLE.COM");
+        request.setPassword("Password1!");
+        var response = service.login(request);
+        assertIdentity(response.getAccessToken(), 99L, "ADMIN");
+        assertEquals(99L, response.getUser().getId());
     }
 
     @Test

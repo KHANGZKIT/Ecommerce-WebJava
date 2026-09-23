@@ -8,13 +8,18 @@ import com.ecommerce.paymentservice.exception.GlobalExceptionHandler;
 import com.ecommerce.paymentservice.exception.PaymentNotFoundException;
 import com.ecommerce.paymentservice.model.PaymentMethod;
 import com.ecommerce.paymentservice.model.PaymentStatus;
+import com.ecommerce.paymentservice.security.PaymentPrincipal;
 import com.ecommerce.paymentservice.service.PaymentService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -45,8 +50,23 @@ class PaymentControllerCurrentBehaviorTest {
                 .build();
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void setAuthenticatedUser(long userId, String role) {
+        PaymentPrincipal principal = new PaymentPrincipal(userId, "user" + userId + "@example.com", role);
+        var authorities = "ADMIN".equalsIgnoreCase(role)
+                ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_CUSTOMER"))
+                : List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
     @Test
-    void processPayment_withValidRequest_returns201Created() throws Exception {
+    void processPayment_withValidRequest_withoutBearerToken_returns201Created() throws Exception {
+        // Internal endpoint called by order-service: no authentication required
         String requestJson = """
                 {
                     "orderId": 501,
@@ -83,7 +103,6 @@ class PaymentControllerCurrentBehaviorTest {
 
     @Test
     void processPayment_withInvalidAmountOrMissingFields_returns400BadRequest() throws Exception {
-        // Zero amount, missing orderId, missing userId, missing paymentMethod
         String invalidJson = """
                 {
                     "amount": 0.00
@@ -102,7 +121,9 @@ class PaymentControllerCurrentBehaviorTest {
     }
 
     @Test
-    void processRefund_withValidRequest_returns200Ok() throws Exception {
+    void processRefund_byAdmin_withValidRequest_returns200Ok() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
+
         String requestJson = """
                 {
                     "paymentId": 55,
@@ -127,7 +148,28 @@ class PaymentControllerCurrentBehaviorTest {
     }
 
     @Test
+    void processRefund_byCustomer_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
+        String requestJson = """
+                {
+                    "paymentId": 55,
+                    "reason": "Customer cancellation"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/payments/refund")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to refund"));
+    }
+
+    @Test
     void processRefund_withBlankReasonOrMissingPaymentId_returns400() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
+
         String invalidJson = """
                 {
                     "reason": ""
@@ -143,10 +185,70 @@ class PaymentControllerCurrentBehaviorTest {
     }
 
     @Test
-    void getByOrderId_returnsListOfPayments() throws Exception {
+    void getPaymentById_byCustomer_ownPayment_returns200() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(1L)
+                .userId(10L)
+                .orderId(101L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/payments/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.userId").value(10));
+    }
+
+    @Test
+    void getPaymentById_byCustomer_anotherUserPayment_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(1L)
+                .userId(99L)
+                .orderId(101L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/payments/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to payment"));
+    }
+
+    @Test
+    void getPaymentById_byAdmin_anotherUserPayment_returns200() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(1L)
+                .userId(99L)
+                .orderId(101L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/payments/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.userId").value(99));
+    }
+
+    @Test
+    void getByOrderId_byCustomer_ownOrderPayments_returnsListOfPayments() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
         PaymentResponse response = PaymentResponse.builder()
                 .id(1L)
                 .orderId(101L)
+                .userId(10L)
                 .status(PaymentStatus.SUCCESS)
                 .build();
 
@@ -159,7 +261,47 @@ class PaymentControllerCurrentBehaviorTest {
     }
 
     @Test
-    void getByUserId_returnsListOfPayments() throws Exception {
+    void getByOrderId_byCustomer_otherUserOrderPayments_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(1L)
+                .orderId(101L)
+                .userId(99L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentsByOrderId(101L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/payments/order/101"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to order payments"));
+    }
+
+    @Test
+    void getByOrderId_byAdmin_otherUserOrderPayments_returns200() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(1L)
+                .orderId(101L)
+                .userId(99L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentsByOrderId(101L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/payments/order/101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].userId").value(99));
+    }
+
+    @Test
+    void getByUserId_byCustomer_ownPayments_returnsListOfPayments() throws Exception {
+        setAuthenticatedUser(50L, "CUSTOMER");
+
         PaymentResponse response = PaymentResponse.builder()
                 .id(2L)
                 .userId(50L)
@@ -175,7 +317,37 @@ class PaymentControllerCurrentBehaviorTest {
     }
 
     @Test
+    void getByUserId_byCustomer_anotherUserPayments_returns403Forbidden() throws Exception {
+        setAuthenticatedUser(50L, "CUSTOMER");
+
+        mockMvc.perform(get("/api/v1/payments/user/99"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Access denied to user payments"));
+    }
+
+    @Test
+    void getByUserId_byAdmin_anotherUserPayments_returns200() throws Exception {
+        setAuthenticatedUser(1L, "ADMIN");
+
+        PaymentResponse response = PaymentResponse.builder()
+                .id(2L)
+                .userId(99L)
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(paymentService.getPaymentsByUserId(99L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/payments/user/99"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].userId").value(99));
+    }
+
+    @Test
     void getPaymentById_whenNotFound_returns404() throws Exception {
+        setAuthenticatedUser(10L, "CUSTOMER");
+
         when(paymentService.getPaymentById(eq(999L)))
                 .thenThrow(new PaymentNotFoundException("Payment not found: 999"));
 

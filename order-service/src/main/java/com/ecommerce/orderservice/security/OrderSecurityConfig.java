@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
@@ -23,6 +24,12 @@ public class OrderSecurityConfig {
             response.getWriter().write("{\"status\":401,\"message\":\"Valid bearer authentication required\"}");
         };
 
+        AccessDeniedHandler accessDenied = (request, response, exception) -> {
+            response.setStatus(403);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"status\":403,\"message\":\"Access denied\"}");
+        };
+
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -30,12 +37,17 @@ public class OrderSecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(unauthorized))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(unauthorized)
+                        .accessDeniedHandler(accessDenied))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**",
                                 "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/v1/orders/checkout", "/api/v1/checkout", "/api/v1/cart", "/api/v1/cart/**").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(new OrderJwtAuthenticationFilter(verifier, unauthorized),
                         UsernamePasswordAuthenticationFilter.class)

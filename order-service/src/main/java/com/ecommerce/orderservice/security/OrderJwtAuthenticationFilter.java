@@ -40,7 +40,11 @@ public class OrderJwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 OrderPrincipal principal = verifier.verify(token);
                 var context = SecurityContextHolder.createEmptyContext();
-                context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+                var authorities = principal.isAdmin()
+                        ? List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
+                                  new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"))
+                        : List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"));
+                context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, authorities));
                 SecurityContextHolder.setContext(context);
             } catch (JwtException | IllegalArgumentException ex) {
                 SecurityContextHolder.clearContext();

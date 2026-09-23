@@ -55,7 +55,7 @@ spring:
         - id: product-service
           uri: http://product-service:8082
           predicates:
-            - Path=/api/v1/products/**,/api/v1/categories/**
+            - Path=/api/v1/products,/api/v1/products/,/api/v1/products/{id:[0-9]+},/api/v1/products/{id:[0-9]+}/inventory,/api/v1/products/category/**,/api/v1/products/search/**,/api/v1/products/sku/**,/api/v1/categories/**
           filters:
             - StripPrefix=0
             - AuthenticationFilter
@@ -102,7 +102,7 @@ spring:
         - id: payment-service
           uri: http://payment-service:8085
           predicates:
-            - Path=/api/v1/payments/**
+            - Path=/api/v1/payments/{id:[0-9]+},/api/v1/payments/order/**,/api/v1/payments/user/**,/api/v1/payments/refund
           filters:
             - StripPrefix=0
             - AuthenticationFilter

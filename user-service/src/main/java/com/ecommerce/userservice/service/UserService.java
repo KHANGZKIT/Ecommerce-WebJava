@@ -52,7 +52,9 @@ public class UserService {
         User savedUser = userRepository.save(user);
         log.info("Registered new user: {}", savedUser.getEmail());
 
-        String token = jwtService.generateToken(Map.of("userId", savedUser.getId()), toUserDetails(savedUser));
+        String token = jwtService.generateToken(
+                Map.of("userId", savedUser.getId(), "role", savedUser.getRole().name()),
+                toUserDetails(savedUser));
         return buildAuthResponse(token, savedUser);
     }
 
@@ -65,7 +67,9 @@ public class UserService {
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + normalizedEmail));
 
-        String token = jwtService.generateToken(Map.of("userId", user.getId()), toUserDetails(user));
+        String token = jwtService.generateToken(
+                Map.of("userId", user.getId(), "role", user.getRole().name()),
+                toUserDetails(user));
         log.info("User logged in: {}", user.getEmail());
         return buildAuthResponse(token, user);
     }

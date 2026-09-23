@@ -3,6 +3,7 @@ package com.ecommerce.orderservice.controller;
 import com.ecommerce.orderservice.dto.CheckoutRequest;
 import com.ecommerce.orderservice.dto.CreateOrderRequest;
 import com.ecommerce.orderservice.dto.OrderDto;
+import com.ecommerce.orderservice.exception.ApiException;
 import com.ecommerce.orderservice.model.Order;
 import com.ecommerce.orderservice.model.OrderStatus;
 import com.ecommerce.orderservice.security.OrderPrincipal;
@@ -101,23 +102,43 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderDto> createOrder(@Valid @RequestBody CreateOrderRequest request) {
+        OrderPrincipal principal = OrderSecurityUtils.findAuthenticatedPrincipal();
+        if (principal != null && !principal.isAdmin()) {
+            request.setUserId(principal.userId());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(request));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderDto> getOrderById(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.getOrderById(id));
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        OrderDto order = orderService.getOrderById(id);
+        if (!principal.isAdmin() && !Long.valueOf(principal.userId()).equals(order.getUserId())) {
+            throw new ApiException("Access denied to order " + id, HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(order);
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<Page<OrderDto>> getOrdersByUser(
             @PathVariable Long userId,
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable) {
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        if (!principal.isAdmin() && !Long.valueOf(principal.userId()).equals(userId)) {
+            throw new ApiException("Access denied to user orders", HttpStatus.FORBIDDEN);
+        }
         return ResponseEntity.ok(orderService.getOrdersByUserId(userId, pageable));
     }
 
     @PostMapping("/{id}/cancel")
     public ResponseEntity<OrderDto> cancelOrder(@PathVariable Long id) {
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        if (!principal.isAdmin()) {
+            OrderDto existing = orderService.getOrderById(id);
+            if (!Long.valueOf(principal.userId()).equals(existing.getUserId())) {
+                throw new ApiException("Access denied to cancel order " + id, HttpStatus.FORBIDDEN);
+            }
+        }
         return ResponseEntity.ok(orderService.cancelOrder(id));
     }
 
@@ -125,6 +146,10 @@ public class OrderController {
     public ResponseEntity<OrderDto> updateStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status) {
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        if (!principal.isAdmin()) {
+            throw new ApiException("Admin access required to update order status", HttpStatus.FORBIDDEN);
+        }
         return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
     }
 }

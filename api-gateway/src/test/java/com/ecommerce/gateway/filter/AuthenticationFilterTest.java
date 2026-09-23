@@ -65,11 +65,13 @@ class AuthenticationFilterTest {
                 .header("Authorization", "Bearer " + token)
                 .header("x-user-id", "2", "3")
                 .header("x-user-email", "b@example.com", "c@example.com")
-                .header("x-auth-token", "forged", "another"));
+                .header("x-auth-token", "forged", "another")
+                .header("x-user-role", "ADMIN", "SUPERUSER"));
         var headers = assertNotNullForwarded(forward(exchange)).getRequest().getHeaders();
         assertEquals(java.util.List.of("1"), headers.get("X-User-Id"));
         assertEquals(java.util.List.of("a@example.com"), headers.get("X-User-Email"));
         assertEquals(java.util.List.of(token), headers.get("X-Auth-Token"));
+        assertNull(headers.getFirst("X-User-Role"));
         assertEquals("Bearer " + token, headers.getFirst("Authorization"));
     }
 
@@ -141,5 +143,32 @@ class AuthenticationFilterTest {
         String prefix = route.substring(0, route.length() - 3);
         assertEquals("AuthenticationFilter", properties.getProperty(prefix + ".filters[1].name"));
         assertEquals("true", properties.getProperty(prefix + ".filters[1].args.requireUserId"));
+    }
+
+    @Test
+    void deployedRoutesExcludeInternalEndpoints() {
+        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new ClassPathResource("application.yml"));
+        var properties = yaml.getObject();
+
+        // Payment route predicate must not expose /charge
+        String paymentRoute = properties.stringPropertyNames().stream()
+                .filter(name -> name.endsWith(".id") && "payment-service".equals(properties.getProperty(name)))
+                .findFirst().orElseThrow();
+        String paymentPrefix = paymentRoute.substring(0, paymentRoute.length() - 3);
+        String paymentPredicates = properties.getProperty(paymentPrefix + ".predicates[0]");
+        assertFalse(paymentPredicates.contains("/payments/charge"));
+        assertFalse(paymentPredicates.contains("/payments/**"));
+
+        // Product route predicate must not expose /batch, /hold, /release
+        String productRoute = properties.stringPropertyNames().stream()
+                .filter(name -> name.endsWith(".id") && "product-service".equals(properties.getProperty(name)))
+                .findFirst().orElseThrow();
+        String productPrefix = productRoute.substring(0, productRoute.length() - 3);
+        String productPredicates = properties.getProperty(productPrefix + ".predicates[0]");
+        assertFalse(productPredicates.contains("/products/batch"));
+        assertFalse(productPredicates.contains("/products/hold"));
+        assertFalse(productPredicates.contains("/products/release"));
+        assertFalse(productPredicates.contains("/products/**"));
     }
 }

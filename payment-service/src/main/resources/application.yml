@@ -43,3 +43,6 @@ management:
 logging:
   level:
     com.ecommerce.paymentservice: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET}
