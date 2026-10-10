@@ -1,7 +1,6 @@
 server:
   port: 8085
   tomcat:
-    max-http-post-size: 20KB
     max-swallow-size: 20KB
   error:
     include-message: always

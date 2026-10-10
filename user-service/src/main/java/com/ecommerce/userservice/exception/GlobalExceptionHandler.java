@@ -124,6 +124,52 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(406, "Not Acceptable: " + ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        String detail = "";
+        Throwable root = ex.getRootCause();
+        if (root != null && root.getMessage() != null) {
+            detail = root.getMessage();
+        } else if (ex.getMessage() != null) {
+            detail = ex.getMessage();
+        }
+
+        String lower = detail.toLowerCase();
+        if (lower.contains("uk_users_phone") || (lower.contains("phone") && (lower.contains("unique") || lower.contains("duplicate") || lower.contains("key")))) {
+            log.warn("Phone number unique constraint violation detected");
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of(409, "An account with this phone number already exists."));
+        }
+        if (lower.contains("uk_users_email") || (lower.contains("email") && (lower.contains("unique") || lower.contains("duplicate") || lower.contains("key")))) {
+            log.warn("Email unique constraint violation detected");
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of(409, "An account with this email address already exists."));
+        }
+
+        String constraintName = extractConstraintNameSafely(ex);
+        if (constraintName != null && !constraintName.isBlank()) {
+            log.error("Unhandled database constraint violation on constraint: {}", constraintName);
+        } else {
+            log.error("Unhandled data integrity violation of type: {}", ex.getClass().getSimpleName());
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(409, "Database constraint violation"));
+    }
+
+    private String extractConstraintNameSafely(org.springframework.dao.DataIntegrityViolationException ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String name = cve.getConstraintName();
+                if (name != null && !name.isBlank() && !name.contains(" ") && !name.contains("=")) {
+                    return name;
+                }
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         log.error("Unhandled exception", ex);

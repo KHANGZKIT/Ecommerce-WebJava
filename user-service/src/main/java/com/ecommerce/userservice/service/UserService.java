@@ -102,7 +102,15 @@ public class UserService {
 
         if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
         if (request.getLastName() != null) user.setLastName(request.getLastName());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getPhone() != null) {
+            String newPhone = request.getPhone().trim();
+            if (!newPhone.isBlank() && !newPhone.equals(user.getPhone())) {
+                if (userRepository.existsByPhoneAndIdNot(newPhone, id)) {
+                    throw new UserAlreadyExistsException("An account with this phone number already exists.");
+                }
+            }
+            user.setPhone(newPhone);
+        }
 
         User updated = userRepository.save(user);
         log.info("Updated profile for user: {}", updated.getEmail());

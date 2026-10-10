@@ -50,7 +50,22 @@ spring:
                 key-resolver: "#{@userKeyResolver}"
 
         # ─────────────────────────────────────────────────────────────────────
-        # Product Service — public browse (rate limited per IP)
+        # Product Service — public catalog browse (rate limited per IP)
+        # ─────────────────────────────────────────────────────────────────────
+        - id: product-service-public
+          uri: http://product-service:8082
+          predicates:
+            - Path=/api/v1/products,/api/v1/products/,/api/v1/products/{id:[0-9]+},/api/v1/products/category/{categoryId:[0-9]+},/api/v1/products/search,/api/v1/products/sku/{sku},/api/v1/categories,/api/v1/categories/,/api/v1/categories/{id:[0-9]+}
+            - Method=GET
+          filters:
+            - StripPrefix=0
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@publicRateLimiter}"
+                key-resolver: "#{@publicApiKeyResolver}"
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Product Service — protected operations (requires auth, rate limited)
         # ─────────────────────────────────────────────────────────────────────
         - id: product-service
           uri: http://product-service:8082
@@ -61,8 +76,8 @@ spring:
             - AuthenticationFilter
             - name: RequestRateLimiter
               args:
-                redis-rate-limiter: "#{@publicRateLimiter}"
-                key-resolver: "#{@publicApiKeyResolver}"
+                redis-rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         # ─────────────────────────────────────────────────────────────────────
         # Cart Service (rate limited per user)

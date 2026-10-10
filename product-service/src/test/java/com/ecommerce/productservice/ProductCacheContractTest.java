@@ -16,8 +16,12 @@ import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -149,6 +153,52 @@ class ProductCacheContractTest {
             assertEquals(12, service.getProductBySku("LAP-001").getStockQuantity(),
                     "SKU lookup must not serve stale stock after an inventory update");
             verify(repository, Mockito.times(2)).findBySkuAndActiveTrue("LAP-001");
+        }
+    }
+
+    @Test
+    void paginatedProductListQueriesRepositoryDirectlyWithoutCache() {
+        try (AnnotationConfigApplicationContext ctx =
+                     new AnnotationConfigApplicationContext(CacheConfig.class)) {
+            ProductService service = ctx.getBean(ProductService.class);
+            ProductRepository repository = ctx.getBean(ProductRepository.class);
+            Product product = product();
+            PageRequest pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product), pageable, 1);
+
+            when(repository.findAllByActiveTrue(pageable)).thenReturn(page);
+
+            Page<ProductDto> first = service.getAllProducts(pageable);
+            assertEquals(1, first.getTotalElements());
+
+            Page<ProductDto> second = service.getAllProducts(pageable);
+            assertEquals(1, second.getTotalElements());
+
+            // Proves deliberate non-cached design: each call queries repository directly
+            verify(repository, times(2)).findAllByActiveTrue(pageable);
+        }
+    }
+
+    @Test
+    void paginatedCategoryProductListQueriesRepositoryDirectlyWithoutCache() {
+        try (AnnotationConfigApplicationContext ctx =
+                     new AnnotationConfigApplicationContext(CacheConfig.class)) {
+            ProductService service = ctx.getBean(ProductService.class);
+            ProductRepository repository = ctx.getBean(ProductRepository.class);
+            Product product = product();
+            PageRequest pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product), pageable, 1);
+
+            when(repository.findAllByCategoryIdAndActiveTrue(1L, pageable)).thenReturn(page);
+
+            Page<ProductDto> first = service.getProductsByCategory(1L, pageable);
+            assertEquals(1, first.getTotalElements());
+
+            Page<ProductDto> second = service.getProductsByCategory(1L, pageable);
+            assertEquals(1, second.getTotalElements());
+
+            // Proves deliberate non-cached design for category pagination
+            verify(repository, times(2)).findAllByCategoryIdAndActiveTrue(1L, pageable);
         }
     }
 }

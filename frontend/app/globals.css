@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-mono), monospace;
+
+  /* Premium Editorial Tech Commerce — Swiss Minimalism & Industrial Precision Design Tokens */
+  --color-obsidian: #1C1917;
+  --color-alabaster: #FAFAF9;
+  --color-stone: #E7E5E4;
+  --color-signal-amber: #D97706;
+  --color-signal-amber-hover: #B45309;
+  --color-white: #FFFFFF;
+  --color-muted-text: #78716C;
+
+  /* Semantic Mappings */
+  --color-canvas: #FAFAF9;
+  --color-surface-base: #FFFFFF;
+  --color-surface-raised: #F5F5F4;
+  --color-surface-sunken: #E7E5E4;
+  
+  --color-text-primary: #1C1917;
+  --color-text-secondary: #78716C;
+  --color-text-tertiary: #A8A29E;
+
+  --color-border-subtle: #E7E5E4;
+  --color-border-strong: #1C1917;
+
+  --color-brand-primary: #1C1917;
+  --color-brand-accent: #D97706;
+  --color-brand-accent-hover: #B45309;
+
+  --color-status-success: #15803D;
+  --color-status-success-bg: #F0FDF4;
+  --color-status-success-border: #BBF7D0;
+
+  --color-status-warning: #B45309;
+  --color-status-warning-bg: #FFFBEB;
+  --color-status-warning-border: #FDE68A;
+
+  --color-status-error: #DC2626;
+  --color-status-error-bg: #FEF2F2;
+  --color-status-error-border: #FECACA;
+
+  --color-status-info: #1C1917;
+  --color-status-info-bg: #FAFAF9;
+  --color-status-info-border: #E7E5E4;
+}
+
+:root {
+  --color-obsidian: #1C1917;
+  --color-alabaster: #FAFAF9;
+  --color-stone: #E7E5E4;
+  --color-signal-amber: #D97706;
+  --color-white: #FFFFFF;
+  --color-muted-text: #78716C;
+
+  --color-bg-canvas: #FAFAF9;
+  --color-surface-base: #FFFFFF;
+  --color-surface-raised: #F5F5F4;
+  --color-surface-sunken: #E7E5E4;
+  --color-text-primary: #1C1917;
+  --color-text-secondary: #78716C;
+  --color-text-tertiary: #A8A29E;
+  --color-border-subtle: #E7E5E4;
+  --color-border-strong: #1C1917;
+  --color-brand-primary: #1C1917;
+  --color-brand-accent: #D97706;
+  --color-brand-accent-hover: #B45309;
+}
+
+/* Tabular numbers for price and numerical alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Clean scrollbar for horizontally scrollable tables and tabs */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAFAF9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E7E5E4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}

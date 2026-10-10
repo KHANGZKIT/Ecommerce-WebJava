@@ -58,17 +58,14 @@ public class ProductService {
     // -------------------------------------------------------------------------
 
     /**
-     * Paginated product list — cached per page/sort combination.
-     * Key encodes page number + size + sort so different pages don't collide.
+     * Paginated product list — directly queried with pagination to avoid
+     * distributed cache serialization issues and high cache churn.
      */
-    @Cacheable(value = "productsList", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
     @Transactional(readOnly = true)
     public Page<ProductDto> getAllProducts(Pageable pageable) {
         return productRepository.findAllByActiveTrue(pageable).map(this::toDto);
     }
 
-    @Cacheable(value = "productsList",
-               key = "'cat-' + #categoryId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     @Transactional(readOnly = true)
     public Page<ProductDto> getProductsByCategory(Long categoryId, Pageable pageable) {
         return productRepository.findAllByCategoryIdAndActiveTrue(categoryId, pageable).map(this::toDto);
@@ -116,7 +113,6 @@ public class ProductService {
     // write must not cache an inactive product as if it were retrievable.
     // -------------------------------------------------------------------------
 
-    @CacheEvict(value = "productsList", allEntries = true)
     @Transactional
     public ProductDto createProduct(CreateProductRequest request) {
         if (productRepository.existsBySku(request.getSku())) {
@@ -140,8 +136,7 @@ public class ProductService {
 
     @Caching(evict = {
         @CacheEvict(value = "products", key = "#id"),
-        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
-        @CacheEvict(value = "productsList", allEntries = true)
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku")
     })
     @Transactional
     public ProductDto updateProduct(Long id, UpdateProductRequest request) {
@@ -159,8 +154,7 @@ public class ProductService {
 
     @Caching(evict = {
         @CacheEvict(value = "products", key = "#id"),
-        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
-        @CacheEvict(value = "productsList", allEntries = true)
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku")
     })
     @Transactional
     public ProductDto updateInventory(Long id, InventoryUpdateRequest request) {
@@ -183,8 +177,7 @@ public class ProductService {
 
     @Caching(evict = {
         @CacheEvict(value = "products", key = "#id"),
-        @CacheEvict(value = "products", key = "'sku-' + #result.sku"),
-        @CacheEvict(value = "productsList", allEntries = true)
+        @CacheEvict(value = "products", key = "'sku-' + #result.sku")
     })
     @Transactional
     public ProductDto deleteProduct(Long id) {

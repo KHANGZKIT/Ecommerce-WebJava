@@ -24,9 +24,10 @@ import java.util.Map;
  * Redis cache configuration for product-service.
  *
  * Cache namespaces:
- *  - "products"     → individual product by id and by SKU ("sku-…" keys) (TTL 10 min)
- *  - "productsList" → paginated product lists     (TTL 5 min)
- *  - "categories"   → individual category by id  (TTL 30 min)
+ *  - "products"   → individual product by id and by SKU ("sku-…" keys) (TTL 10 min)
+ *  - "categories" → individual category by id  (TTL 30 min)
+ *
+ * Paginated product lists are queried directly to avoid PageImpl serialization issues.
  *
  * Uses GenericJackson2JsonRedisSerializer so POJOs are stored as JSON
  * (not Java serialization), which is human-readable and avoids class-cast
@@ -64,8 +65,6 @@ public class RedisConfig {
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
-        // Paginated lists change more often → shorter TTL
-        cacheConfigs.put("productsList", defaultConfig.entryTtl(Duration.ofMinutes(5)));
         // Individual products — moderate TTL
         cacheConfigs.put("products", defaultConfig.entryTtl(Duration.ofMinutes(10)));
         // Categories rarely change → long TTL

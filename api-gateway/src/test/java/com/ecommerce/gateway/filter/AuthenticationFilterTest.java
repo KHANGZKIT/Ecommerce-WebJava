@@ -170,5 +170,18 @@ class AuthenticationFilterTest {
         assertFalse(productPredicates.contains("/products/hold"));
         assertFalse(productPredicates.contains("/products/release"));
         assertFalse(productPredicates.contains("/products/**"));
+
+        // Product public route predicate must also exclude internal endpoints and require GET
+        String publicRoute = properties.stringPropertyNames().stream()
+                .filter(name -> name.endsWith(".id") && "product-service-public".equals(properties.getProperty(name)))
+                .findFirst().orElseThrow();
+        String publicPrefix = publicRoute.substring(0, publicRoute.length() - 3);
+        String publicPredicates = properties.getProperty(publicPrefix + ".predicates[0]");
+        assertFalse(publicPredicates.contains("/products/batch"));
+        assertFalse(publicPredicates.contains("/products/hold"));
+        assertFalse(publicPredicates.contains("/products/release"));
+        assertFalse(publicPredicates.contains("/products/**"));
+        assertFalse(publicPredicates.contains("/inventory"));
+        assertEquals("Method=GET", properties.getProperty(publicPrefix + ".predicates[1]"));
     }
 }

@@ -40,3 +40,7 @@ build/
 *.sqlite
 .env
 docs
+!frontend/docs/
+__pycache__/
+*.py[cod]
+*$py.class

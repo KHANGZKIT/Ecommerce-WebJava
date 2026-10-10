@@ -171,6 +171,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://product-db:5432/product_db
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+      APP_DEMO_SEED_ENABLED: "true"
     ports:
       - "8082:8082"
     deploy:
