@@ -12,7 +12,7 @@ export function CustomerShell({
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAF9]">
       <Header />
-      <main className={`flex-1 w-full max-w-[1280px] mx-auto px-6 py-8 ${className}`}>
+      <main className={`flex-1 w-full px-3.5 sm:px-4 lg:px-5 py-6 ${className}`}>
         {children}
       </main>
       <Footer />

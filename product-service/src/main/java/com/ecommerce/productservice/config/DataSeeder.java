@@ -44,19 +44,19 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedCategories() {
-        getOrCreateCategory("Âm thanh", "Tai nghe, Loa, DAC", "/img/HeadsetM.jpg");
-        getOrCreateCategory("Bàn phím", "Bàn phím cơ", "/img/NoteBookM.jpg");
-        getOrCreateCategory("Chuột", "Chuột không dây, gaming", "/img/TabletM.jpg");
-        getOrCreateCategory("Phụ kiện", "Cáp sạc, hub", "/img/PhoneM.jpg");
-        getOrCreateCategory("Màn hình", "Màn hình đồ họa", "/img/watchM.jpg");
-        getOrCreateCategory("Laptop", "Laptop mỏng nhẹ, gaming", "/img/NoteBookM.jpg");
+        getOrCreateCategory("Tai nghe", "Tai nghe chống ồn, gaming, không dây và có dây", "/img/HeadsetM.jpg");
+        getOrCreateCategory("Bàn phím cơ", "Bàn phím cơ custom, switch cao cấp và layout công thái học", "/img/NoteBookM.jpg");
+        getOrCreateCategory("Chuột máy tính", "Chuột không dây, chuột công thái học cho văn phòng và gaming", "/img/TabletM.jpg");
+        getOrCreateCategory("Phụ kiện công nghệ", "Củ sạc GaN, Hub chuyển đổi Type-C, giá đỡ nhôm tản nhiệt", "/img/PhoneM.jpg");
+        getOrCreateCategory("Màn hình", "Màn hình đồ họa, gaming, 4K IPS", "/img/watchM.jpg");
+        getOrCreateCategory("Laptop", "Laptop mỏng nhẹ, gaming, lập trình và sáng tạo nội dung", "/img/NoteBookM.jpg");
     }
 
     private void seedProducts() {
-        Category audio = categoryRepository.findByName("Âm thanh").orElseThrow();
-        Category keyboard = categoryRepository.findByName("Bàn phím").orElseThrow();
-        Category mouse = categoryRepository.findByName("Chuột").orElseThrow();
-        Category accessories = categoryRepository.findByName("Phụ kiện").orElseThrow();
+        Category audio = categoryRepository.findByName("Tai nghe").orElseThrow();
+        Category keyboard = categoryRepository.findByName("Bàn phím cơ").orElseThrow();
+        Category mouse = categoryRepository.findByName("Chuột máy tính").orElseThrow();
+        Category accessories = categoryRepository.findByName("Phụ kiện công nghệ").orElseThrow();
         Category monitor = categoryRepository.findByName("Màn hình").orElseThrow();
         Category laptop = categoryRepository.findByName("Laptop").orElseThrow();
 

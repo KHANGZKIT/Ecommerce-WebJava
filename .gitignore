@@ -32,13 +32,51 @@ build/
 ### VS Code ###
 .vscode/
 
-### Mac OS ###
+### OS Metadata ###
 .DS_Store
+Thumbs.db
+desktop.ini
+
+### Environment & Secrets (CRITICAL - DO NOT PUSH) ###
+.env
+.env.*
+!.env.example
+*.env
+*.local
+credentials.json
+secrets/
+
+### Certificates & Private Keys ###
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.crt
+id_rsa*
+id_ed25519*
+
+### Database Dumps & Backups (CRITICAL - DO NOT PUSH) ###
+*.sql
+!**/src/main/resources/db/migration/*.sql
+*.dump
+*.rdb
+*.bak
+*.backup
+backup_*
+
+### Temporary, Scratch & Audit Files ###
+scratch/
+tmp/
+temp/
+*.tmp
+audit_*.png
+screenshot_*.png
+import_summary.json
 
 ### Others ###
 *.log
 *.sqlite
-.env
 docs
 !frontend/docs/
 __pycache__/

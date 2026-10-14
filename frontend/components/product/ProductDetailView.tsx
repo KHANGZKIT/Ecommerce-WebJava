@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { formatVndPrice } from "@/components/product/ProductCard";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { EmptyState, ErrorState } from "@/components/ui/FeedbackStates";
 import { useAuth } from "@/features/auth/AuthContext";
 import { getProductByIdApi } from "@/lib/api/catalog";
 import { addToCartApi } from "@/lib/api/cart";
@@ -117,16 +119,15 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
   if (isLoading) {
     return (
       <CustomerShell className="py-6">
-        <div className="h-4 w-36 bg-[#E7E5E4] rounded mb-8 animate-pulse" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-          <div className="lg:col-span-7 aspect-[4/3] bg-[#F5F5F4] rounded-[6px] border border-[#E7E5E4] animate-pulse" />
+        <div className="h-4 w-48 bg-[#E7E5E4] rounded mb-6 animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+          <div className="lg:col-span-7 aspect-[4/3] bg-white rounded-2xl border border-[#E7E5E4] animate-pulse p-6" />
           <div className="lg:col-span-5 space-y-4 animate-pulse">
             <div className="h-4 w-28 bg-[#E7E5E4] rounded" />
             <div className="h-9 w-4/5 bg-[#E7E5E4] rounded" />
-            <div className="h-4 w-32 bg-[#E7E5E4] rounded" />
-            <div className="h-8 w-40 bg-[#E7E5E4] rounded my-4" />
-            <div className="h-24 w-full bg-[#E7E5E4] rounded" />
-            <div className="h-11 w-full bg-[#E7E5E4] rounded" />
+            <div className="h-6 w-36 bg-[#E7E5E4] rounded my-4" />
+            <div className="h-24 w-full bg-[#E7E5E4]/60 rounded-xl" />
+            <div className="h-11 w-full bg-[#E7E5E4] rounded-xl" />
           </div>
         </div>
       </CustomerShell>
@@ -138,20 +139,14 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
   // =========================================================================
   if (notFound) {
     return (
-      <CustomerShell className="py-8">
-        <div className="py-20 text-center border border-stone-200 rounded-xl bg-white my-8 p-8">
-          <h2 className="text-2xl font-bold text-stone-900 tracking-tight mb-3">
-            Không tìm thấy sản phẩm
-          </h2>
-          <p className="text-sm text-stone-500 max-w-md mx-auto mb-6 leading-relaxed">
-            Sản phẩm bạn đang tìm kiếm (ID: #{id}) không tồn tại hoặc đã ngừng kinh doanh.
-          </p>
-          <Link
-            href="/shop"
-            className="inline-flex h-10 px-6 rounded-lg bg-stone-900 text-white text-xs font-semibold items-center justify-center hover:bg-stone-800 transition-colors"
-          >
-            ← Quay lại cửa hàng
-          </Link>
+      <CustomerShell className="py-6">
+        <div className="my-8">
+          <EmptyState
+            title="Không tìm thấy sản phẩm"
+            message={`Sản phẩm bạn đang tìm kiếm (ID: #${id}) không tồn tại hoặc đã ngừng kinh doanh.`}
+            actionLabel="← Quay lại cửa hàng"
+            onAction={() => router.push("/shop")}
+          />
         </div>
       </CustomerShell>
     );
@@ -162,22 +157,13 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
   // =========================================================================
   if (error || !product) {
     return (
-      <CustomerShell className="py-8">
-        <div className="p-8 border border-rose-200 bg-rose-50 rounded-xl my-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-semibold text-rose-700 uppercase mb-1">
-              Lỗi kết nối máy chủ
-            </div>
-            <p className="text-sm text-rose-800">
-              {error || "Không thể tải thông tin sản phẩm."}
-            </p>
-          </div>
-          <Link
-            href="/shop"
-            className="h-9 px-4 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 transition-colors self-start sm:self-auto inline-flex items-center"
-          >
-            Quay lại cửa hàng
-          </Link>
+      <CustomerShell className="py-6">
+        <div className="my-8">
+          <ErrorState
+            title="Lỗi kết nối máy chủ"
+            message={error || "Không thể tải thông tin sản phẩm lúc này."}
+            onRetry={() => window.location.reload()}
+          />
         </div>
       </CustomerShell>
     );
@@ -190,15 +176,22 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
   return (
     <CustomerShell className="py-6">
-      {/* Back to Shop Navigation Link */}
+      {/* Breadcrumb Navigation */}
       <div className="mb-6">
-        <Link
-          href="/shop"
-          className="text-xs font-medium text-stone-500 hover:text-stone-900 transition-colors inline-flex items-center gap-1.5"
-        >
-          <span>←</span>
-          <span>Quay lại danh mục sản phẩm</span>
-        </Link>
+        <Breadcrumbs
+          items={[
+            { label: "Cửa hàng", href: "/shop" },
+            ...(product.category
+              ? [
+                  {
+                    label: product.category.name,
+                    href: `/category/${product.category.id}`,
+                  },
+                ]
+              : []),
+            { label: product.name, isCurrent: true },
+          ]}
+        />
       </div>
 
       {/* Main Product Hero (55% Visual / 45% Information Split) */}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { ProtectedRoute } from "@/features/auth/AuthGuard";
 import { formatVndPrice } from "@/components/product/ProductCard";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { EmptyState, ErrorState } from "@/components/ui/FeedbackStates";
 import {
   getCartApi,
   updateCartItemQuantityApi,
@@ -167,20 +169,14 @@ function CartContent() {
   // =========================================================================
   if (error || !cart) {
     return (
-      <div className="py-12">
-        <div className="p-8 border border-rose-200 bg-rose-50 rounded-xl max-w-xl mx-auto my-12 text-center">
-          <h2 className="text-xl font-bold text-rose-700 mb-2">
-            Không thể tải giỏ hàng
-          </h2>
-          <p className="text-sm text-stone-600 mb-6">
-            {error || "Đã xảy ra lỗi khi lấy thông tin giỏ hàng. Vui lòng thử lại."}
-          </p>
-          <button
-            onClick={loadCart}
-            className="h-10 px-6 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 transition-colors cursor-pointer"
-          >
-            Thử lại
-          </button>
+      <div className="py-4">
+        <Breadcrumbs items={[{ label: "Giỏ hàng", href: "/cart", isCurrent: true }]} />
+        <div className="my-10">
+          <ErrorState
+            title="Không thể tải giỏ hàng"
+            message={error || "Đã xảy ra lỗi khi lấy thông tin giỏ hàng. Vui lòng thử lại."}
+            onRetry={loadCart}
+          />
         </div>
       </div>
     );
@@ -195,23 +191,15 @@ function CartContent() {
   // =========================================================================
   if (itemCount === 0) {
     return (
-      <div className="py-12">
-        <div className="py-20 px-8 max-w-xl mx-auto my-12 text-center bg-white border border-stone-200 rounded-xl">
-          <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center mx-auto mb-4 text-2xl text-stone-400">
-            🛒
-          </div>
-          <h2 className="text-2xl font-bold text-stone-900 tracking-tight mb-2">
-            Giỏ hàng của bạn đang trống
-          </h2>
-          <p className="text-sm text-stone-500 max-w-md mx-auto mb-8 leading-relaxed">
-            Bạn chưa thêm sản phẩm nào vào giỏ hàng. Hãy khám phá bộ sưu tập thiết bị công nghệ chính hãng tại TECHGEAR.
-          </p>
-          <Link
-            href="/shop"
-            className="inline-flex h-11 px-8 rounded-lg bg-stone-900 text-white text-xs font-semibold items-center justify-center hover:bg-stone-800 transition-colors"
-          >
-            Khám phá sản phẩm
-          </Link>
+      <div className="py-4">
+        <Breadcrumbs items={[{ label: "Giỏ hàng", href: "/cart", isCurrent: true }]} />
+        <div className="my-10">
+          <EmptyState
+            title="Giỏ hàng của bạn đang trống"
+            message="Bạn chưa thêm sản phẩm nào vào giỏ hàng. Hãy khám phá bộ sưu tập thiết bị công nghệ chính hãng tại TECHGEAR."
+            actionLabel="Khám phá sản phẩm ngay"
+            onAction={() => window.location.href = "/shop"}
+          />
         </div>
       </div>
     );
@@ -221,14 +209,17 @@ function CartContent() {
   // 4. POPULATED CART (65% Items / 35% Summary Grid)
   // =========================================================================
   return (
-    <div className="py-8">
+    <div className="py-4">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: "Giỏ hàng", href: "/cart", isCurrent: true }]} />
+
       {/* Page Heading & Item Counter */}
-      <div className="pt-2 pb-6 border-b border-stone-200 mb-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
+      <div className="pt-2 pb-6 border-b border-[#E7E5E4] mb-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1C1917]">
             Giỏ hàng của bạn
           </h1>
-          <span className="text-sm text-stone-500">
+          <span className="text-sm font-medium text-[#78716C]">
             ({itemCount} sản phẩm)
           </span>
         </div>

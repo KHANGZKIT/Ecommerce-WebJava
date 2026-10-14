@@ -8,12 +8,16 @@ import { getCartApi } from "@/lib/api/cart";
 
 // Danh mục sản phẩm công nghệ chuẩn mực của hệ thống
 const TECH_CATEGORIES = [
-  { id: 1, name: "Âm thanh & Tai nghe", shortName: "Âm thanh", href: "/category/1" },
-  { id: 2, name: "Bàn phím cơ", shortName: "Bàn phím", href: "/category/2" },
-  { id: 3, name: "Chuột máy tính", shortName: "Chuột", href: "/category/3" },
-  { id: 4, name: "Màn hình", shortName: "Màn hình", href: "/category/5" },
-  { id: 5, name: "Phụ kiện công nghệ", shortName: "Phụ kiện", href: "/category/4" },
-  { id: 6, name: "Laptop & Linh kiện", shortName: "Laptop", href: "/category/6" },
+  { id: 1, name: "Laptop & Máy tính", shortName: "Laptop", href: "/category/1" },
+  { id: 13, name: "Điện thoại thông minh", shortName: "Điện thoại", href: "/category/13" },
+  { id: 10, name: "Tai nghe & Âm thanh", shortName: "Tai nghe", href: "/category/10" },
+  { id: 14, name: "Máy tính bảng", shortName: "Tablet", href: "/category/14" },
+  { id: 15, name: "Đồng hồ thông minh", shortName: "Đồng hồ", href: "/category/15" },
+  { id: 11, name: "Màn hình máy tính", shortName: "Màn hình", href: "/category/11" },
+  { id: 16, name: "Máy tính để bàn", shortName: "PC Desktop", href: "/category/16" },
+  { id: 8, name: "Bàn phím cơ", shortName: "Bàn phím", href: "/category/8" },
+  { id: 9, name: "Chuột máy tính", shortName: "Chuột", href: "/category/9" },
+  { id: 12, name: "Phụ kiện công nghệ", shortName: "Phụ kiện", href: "/category/12" },
 ];
 
 export function Header() {
@@ -111,7 +115,7 @@ export function Header() {
       {/* ============================================================== */}
       {/* 1. DESKTOP & MOBILE TOP BAR                                    */}
       {/* ============================================================== */}
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-6">
+      <div className="w-full px-3.5 sm:px-4 lg:px-5 h-16 flex items-center justify-between gap-3 sm:gap-6">
         {/* Left: Mobile Hamburger Toggle + TECHGEAR Logo */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Mobile Hamburger Button */}
@@ -138,8 +142,8 @@ export function Header() {
           </Link>
         </div>
 
-        {/* Center: Desktop Search Bar */}
-        <div className="hidden md:flex flex-1 max-w-xl mx-2 lg:mx-6">
+        {/* Center: Desktop Search Bar (Expands flexibly to fill available width) */}
+        <div className="hidden md:flex flex-1 max-w-xl lg:max-w-2xl xl:max-w-3xl mx-3 lg:mx-8">
           <form onSubmit={handleSearch} className="relative w-full">
             <div className="relative flex items-center">
               <div className="absolute left-3.5 pointer-events-none text-[#78716C]">
@@ -149,17 +153,31 @@ export function Header() {
               </div>
               <input
                 type="text"
-                placeholder="Tìm bàn phím cơ, chuột gaming, tai nghe, màn hình..."
+                placeholder="Tìm laptop, điện thoại, bàn phím cơ, màn hình..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-20 bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] text-sm rounded-lg border border-[#E7E5E4] focus:border-[#1C1917] focus:ring-1 focus:ring-[#1C1917] outline-none transition-all"
+                className="w-full h-10 pl-10 pr-24 bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] text-sm rounded-lg border border-[#E7E5E4] hover:border-[#1C1917]/40 focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 outline-none transition-all"
               />
-              <button
-                type="submit"
-                className="absolute right-1.5 h-7 px-3 bg-[#1C1917] hover:bg-[#292524] active:bg-black text-white text-xs font-semibold rounded-md transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <span>Tìm</span>
-              </button>
+              <div className="absolute right-1.5 flex items-center gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#A8A29E] hover:text-[#1C1917] hover:bg-[#F5F5F4] transition-colors cursor-pointer"
+                    aria-label="Xóa nội dung tìm kiếm"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="h-7 px-3 bg-[#1C1917] hover:bg-[#292524] active:scale-95 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D97706]"
+                >
+                  <span>Tìm</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -299,18 +317,32 @@ export function Header() {
           <form onSubmit={handleSearch} className="relative w-full">
             <input
               type="text"
-              placeholder="Tìm kiếm bàn phím, chuột, màn hình..."
+              placeholder="Tìm laptop, điện thoại, bàn phím..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
-              className="w-full h-10 pl-4 pr-12 bg-white border border-[#E7E5E4] rounded-lg text-sm text-[#1C1917] placeholder:text-[#78716C] focus:border-[#1C1917] outline-none"
+              className="w-full h-10 pl-4 pr-20 bg-white border border-[#E7E5E4] rounded-lg text-sm text-[#1C1917] placeholder:text-[#78716C] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 outline-none"
             />
-            <button
-              type="submit"
-              className="absolute right-2 top-2 h-6 px-2.5 bg-[#1C1917] text-white rounded text-xs font-medium cursor-pointer"
-            >
-              Tìm
-            </button>
+            <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[#A8A29E] hover:text-[#1C1917] transition-colors cursor-pointer"
+                  aria-label="Xóa nội dung tìm kiếm"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+              <button
+                type="submit"
+                className="h-7 px-2.5 bg-[#1C1917] text-white rounded text-xs font-semibold cursor-pointer active:scale-95 transition-all"
+              >
+                Tìm
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -319,9 +351,9 @@ export function Header() {
       {/* 2. DESKTOP NAVIGATION TIER (Row 2)                              */}
       {/* ============================================================== */}
       <div className="hidden md:block bg-[#FAFAF9] border-t border-[#E7E5E4]">
-        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-11 flex items-center justify-between text-xs font-medium">
+        <div className="w-full px-3.5 sm:px-4 lg:px-5 h-11 flex items-center justify-between gap-4 text-xs font-medium">
           {/* Left: Category Dropdown Trigger + Main Nav Links */}
-          <div className="flex items-center gap-1 lg:gap-2">
+          <div className="flex items-center gap-1 lg:gap-2 shrink-0">
             {/* Categories Dropdown */}
             <div className="relative" ref={categoryDropdownRef}>
               <button
@@ -407,13 +439,13 @@ export function Header() {
             </Link>
           </div>
 
-          {/* Right: Quick Category Shortcuts */}
-          <div className="hidden xl:flex items-center gap-1 text-[#78716C]">
-            {TECH_CATEGORIES.map((cat) => (
+          {/* Right: Quick Category Shortcuts (Flex across available space, scroll smoothly if tight) */}
+          <div className="hidden lg:flex items-center gap-1 xl:gap-2 text-[#78716C] overflow-x-auto hide-scrollbar">
+            {TECH_CATEGORIES.slice(0, 8).map((cat) => (
               <Link
                 key={cat.id}
                 href={cat.href}
-                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-xs whitespace-nowrap transition-colors shrink-0 ${
                   isCurrent(cat.href)
                     ? "text-[#1C1917] font-semibold bg-[#E7E5E4]/60"
                     : "hover:text-[#1C1917] hover:bg-[#E7E5E4]/40"

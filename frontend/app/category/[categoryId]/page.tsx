@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { ProductCard } from "@/components/product/ProductCard";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { EmptyState, ErrorState, ProductGridSkeleton } from "@/components/ui/FeedbackStates";
 import {
   getCategoriesApi,
   getCategoryByIdApi,
@@ -49,21 +51,8 @@ function CategoryLoadingSkeleton() {
       </section>
 
       {/* Skeleton Product Grid (8 cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        {Array.from({ length: 8 }).map((_, idx) => (
-          <div
-            key={idx}
-            className="bg-white border border-[#E7E5E4] rounded-[4px] p-4 animate-pulse flex flex-col shadow-none"
-          >
-            <div className="aspect-square w-full bg-[#F5F5F4] rounded-[4px] mb-3" />
-            <div className="h-3 w-20 bg-[#E7E5E4] rounded mb-2" />
-            <div className="h-5 w-full bg-[#E7E5E4] rounded mb-4" />
-            <div className="mt-auto pt-2 border-t border-[#F5F5F4] flex justify-between items-center">
-              <div className="h-4 w-24 bg-[#E7E5E4] rounded" />
-              <div className="h-3 w-16 bg-[#E7E5E4] rounded" />
-            </div>
-          </div>
-        ))}
+      <div className="mb-12">
+        <ProductGridSkeleton count={8} />
       </div>
     </div>
   );
@@ -195,27 +184,21 @@ function CategoryContent({
   if (isNotFound) {
     return (
       <div className="py-0">
-        {/* Breadcrumbs */}
-        <section className="pt-8 pb-4">
-          <div className="text-xs text-stone-500 flex items-center gap-1.5 font-medium">
-            <Link href="/" className="hover:text-stone-900 transition-colors">
-              Trang chủ
-            </Link>
-            <span>/</span>
-            <Link href="/shop" className="hover:text-stone-900 transition-colors">
-              Danh mục
-            </Link>
-            <span>/</span>
-            <span className="text-rose-600 font-semibold">Không tìm thấy</span>
-          </div>
-        </section>
+        <div className="pt-4">
+          <Breadcrumbs
+            items={[
+              { label: "Cửa hàng", href: "/shop" },
+              { label: "Không tìm thấy danh mục", isCurrent: true },
+            ]}
+          />
+        </div>
 
         {/* Category Navigation Rail */}
-        <section className="py-4 border-b border-stone-200 overflow-x-auto scrollbar-none">
+        <section className="py-4 border-b border-[#E7E5E4] overflow-x-auto hide-scrollbar">
           <div className="flex items-center gap-2 min-w-max">
             <Link
               href="/shop"
-              className="bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+              className="bg-white text-[#78716C] border border-[#E7E5E4] hover:bg-[#FAFAF9] hover:text-[#1C1917] px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
             >
               Tất cả sản phẩm
             </Link>
@@ -224,7 +207,7 @@ function CategoryContent({
               <Link
                 key={cat.id}
                 href={`/category/${cat.id}`}
-                className="bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+                className="bg-white text-[#78716C] border border-[#E7E5E4] hover:bg-[#FAFAF9] hover:text-[#1C1917] px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
               >
                 {cat.name}
               </Link>
@@ -232,20 +215,13 @@ function CategoryContent({
           </div>
         </section>
 
-        {/* 404 Panel */}
-        <div className="p-16 text-center max-w-xl mx-auto my-16 bg-white border border-stone-200 rounded-xl shadow-none">
-          <h2 className="text-2xl font-bold text-stone-900 mb-2">
-            Không tìm thấy danh mục
-          </h2>
-          <p className="text-sm text-stone-500 mb-6 leading-relaxed">
-            Danh mục sản phẩm bạn yêu cầu không tồn tại hoặc đã ngừng hoạt động.
-          </p>
-          <Link
-            href="/shop"
-            className="inline-flex items-center justify-center bg-stone-900 text-white px-6 py-2.5 text-xs font-semibold rounded-lg hover:bg-stone-800 transition-colors"
-          >
-            Quay lại cửa hàng
-          </Link>
+        <div className="my-12">
+          <EmptyState
+            title="Không tìm thấy danh mục"
+            message="Danh mục sản phẩm bạn yêu cầu không tồn tại hoặc đã ngừng kinh doanh."
+            actionLabel="Quay lại cửa hàng"
+            onAction={() => router.push("/shop")}
+          />
         </div>
       </div>
     );
@@ -255,32 +231,21 @@ function CategoryContent({
   if (error && !isLoading) {
     return (
       <div className="py-0">
-        <section className="pt-8 pb-4">
-          <div className="text-xs text-stone-500 flex items-center gap-1.5 font-medium">
-            <Link href="/" className="hover:text-stone-900 transition-colors">
-              Trang chủ
-            </Link>
-            <span>/</span>
-            <Link href="/shop" className="hover:text-stone-900 transition-colors">
-              Danh mục
-            </Link>
-          </div>
-        </section>
+        <div className="pt-4">
+          <Breadcrumbs
+            items={[
+              { label: "Cửa hàng", href: "/shop" },
+              { label: "Lỗi tải dữ liệu", isCurrent: true },
+            ]}
+          />
+        </div>
 
-        <div className="p-8 max-w-xl mx-auto my-12 bg-white border border-rose-200 rounded-xl">
-          <h2 className="text-lg font-bold text-rose-700 mb-2">
-            Lỗi tải dữ liệu danh mục
-          </h2>
-          <p className="text-sm text-stone-600 mb-6 leading-relaxed">
-            {error}
-          </p>
-          <button
-            type="button"
-            onClick={() => loadData(numericCatId, page, sort)}
-            className="inline-flex items-center justify-center bg-stone-900 text-white px-6 py-2.5 text-xs font-semibold rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
-          >
-            Thử lại
-          </button>
+        <div className="my-12">
+          <ErrorState
+            title="Lỗi tải dữ liệu danh mục"
+            message={error}
+            onRetry={() => loadData(numericCatId, page, sort)}
+          />
         </div>
       </div>
     );
@@ -297,35 +262,28 @@ function CategoryContent({
       {/* ================================================================ */}
       {/* 1. BREADCRUMBS & CATEGORY EDITORIAL HEADER                       */}
       {/* ================================================================ */}
-      <section className="pt-8 pb-6 border-b border-stone-200">
+      <section className="pt-4 pb-6 border-b border-[#E7E5E4]">
         {/* Breadcrumb Navigation */}
-        <div className="text-xs text-stone-500 mb-3 flex items-center gap-1.5 font-medium">
-          <Link href="/" className="hover:text-stone-900 transition-colors">
-            Trang chủ
-          </Link>
-          <span>/</span>
-          <Link href="/shop" className="hover:text-stone-900 transition-colors">
-            Danh mục
-          </Link>
-          <span>/</span>
-          <span className="text-stone-900 font-semibold">
-            {category?.name || "Danh mục"}
-          </span>
-        </div>
+        <Breadcrumbs
+          items={[
+            { label: "Cửa hàng", href: "/shop" },
+            { label: category?.name || "Danh mục", isCurrent: true },
+          ]}
+        />
 
         {/* Category Heading & Description */}
         {isLoading ? (
-          <div>
-            <div className="h-8 w-64 bg-stone-200 rounded-lg mb-2 animate-pulse" />
-            <div className="h-4 w-96 bg-stone-100 rounded animate-pulse" />
+          <div className="pt-2">
+            <div className="h-8 w-64 bg-[#E7E5E4] rounded-lg mb-2 animate-pulse" />
+            <div className="h-4 w-96 bg-[#F5F5F4] rounded animate-pulse" />
           </div>
         ) : (
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 mb-2">
+          <div className="pt-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1C1917] mb-2">
               {category?.name}
             </h1>
             {category?.description && category.description.trim() && (
-              <p className="text-sm text-stone-600 leading-relaxed max-w-2xl">
+              <p className="text-sm text-[#78716C] leading-relaxed max-w-2xl">
                 {category.description}
               </p>
             )}
@@ -336,11 +294,11 @@ function CategoryContent({
       {/* ================================================================ */}
       {/* 2. CATEGORY NAVIGATION (Segmented Rail)                          */}
       {/* ================================================================ */}
-      <section className="py-4 border-b border-stone-200 overflow-x-auto scrollbar-none">
+      <section className="py-4 border-b border-[#E7E5E4] overflow-x-auto hide-scrollbar">
         <div className="flex items-center gap-2 min-w-max">
           <Link
             href="/shop"
-            className="bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+            className="bg-white text-[#78716C] border border-[#E7E5E4] hover:bg-[#FAFAF9] hover:text-[#1C1917] hover:border-[#1C1917]/40 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all shadow-xs"
           >
             Tất cả sản phẩm
           </Link>
@@ -351,10 +309,10 @@ function CategoryContent({
               <Link
                 key={cat.id}
                 href={`/category/${cat.id}`}
-                className={`px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-all shadow-xs ${
                   isActive
-                    ? "bg-stone-900 text-white"
-                    : "bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 hover:text-stone-900"
+                    ? "bg-[#1C1917] text-white"
+                    : "bg-white text-[#78716C] border border-[#E7E5E4] hover:bg-[#FAFAF9] hover:text-[#1C1917] hover:border-[#1C1917]/40"
                 }`}
               >
                 {cat.name}
@@ -367,9 +325,9 @@ function CategoryContent({
       {/* ================================================================ */}
       {/* 3. CATALOG TOOLBAR                                               */}
       {/* ================================================================ */}
-      <section className="py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 mb-8 gap-3">
+      <section className="py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E7E5E4] mb-8 gap-3">
         {/* Left: Product Counter */}
-        <div className="text-xs font-medium text-stone-500">
+        <div className="text-xs font-medium text-[#78716C]">
           {isLoading ? (
             <span>Đang tải danh mục...</span>
           ) : totalElements > 0 ? (
@@ -387,7 +345,7 @@ function CategoryContent({
         <div className="flex items-center gap-2">
           <label
             htmlFor="category-sort"
-            className="text-xs font-medium text-stone-600"
+            className="text-xs font-medium text-[#78716C]"
           >
             Sắp xếp:
           </label>
@@ -395,7 +353,7 @@ function CategoryContent({
             id="category-sort"
             value={sort}
             onChange={handleSortChange}
-            className="h-9 px-3 bg-white border border-stone-200 rounded-lg text-xs text-stone-800 font-medium focus:border-stone-900 focus:outline-none cursor-pointer"
+            className="h-9 px-3 bg-white border border-[#E7E5E4] rounded-lg text-xs text-[#1C1917] font-semibold hover:border-[#1C1917]/40 focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none cursor-pointer transition-all shadow-xs"
           >
             {VALID_SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -410,38 +368,17 @@ function CategoryContent({
       {/* 4. PRODUCT GRID / STATES                                         */}
       {/* ================================================================ */}
       {isLoading ? (
-        /* Loading Skeleton */
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-12">
-          {Array.from({ length: 8 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="bg-white border border-stone-200 rounded-xl p-4 animate-pulse flex flex-col shadow-none"
-            >
-              <div className="aspect-square w-full bg-stone-100 rounded-lg mb-3" />
-              <div className="h-3 w-20 bg-stone-200 rounded mb-2" />
-              <div className="h-4 w-full bg-stone-200 rounded mb-4" />
-              <div className="mt-auto pt-3 border-t border-stone-100 flex justify-between items-center">
-                <div className="h-4 w-24 bg-stone-200 rounded" />
-                <div className="h-3 w-16 bg-stone-200 rounded" />
-              </div>
-            </div>
-          ))}
+        <div className="mb-12">
+          <ProductGridSkeleton count={8} />
         </div>
       ) : totalElements === 0 || pageData.empty ? (
-        /* State 3: Empty Category State */
-        <div className="p-16 text-center max-w-xl mx-auto my-12 bg-white border border-stone-200 rounded-xl shadow-none">
-          <h2 className="text-base font-semibold text-stone-900 mb-2">
-            Chưa có sản phẩm trong danh mục này
-          </h2>
-          <p className="text-sm text-stone-500 mb-6 leading-relaxed">
-            Chúng tôi đang bổ sung thiết bị mới cho danh mục này. Bạn có thể khám phá các danh mục khác hoặc quay lại cửa hàng.
-          </p>
-          <Link
-            href="/shop"
-            className="inline-flex items-center justify-center bg-stone-900 text-white px-6 py-2.5 text-xs font-semibold rounded-lg hover:bg-stone-800 transition-colors"
-          >
-            Xem tất cả sản phẩm
-          </Link>
+        <div className="my-12">
+          <EmptyState
+            title="Chưa có sản phẩm trong danh mục này"
+            message="Chúng tôi đang cập nhật các thiết bị công nghệ chính hãng mới nhất cho danh mục này. Bạn có thể xem các nhóm sản phẩm khác hoặc quay lại cửa hàng."
+            actionLabel="Xem tất cả sản phẩm"
+            onAction={() => router.push("/shop")}
+          />
         </div>
       ) : (
         /* State 2: Populated Product Grid */

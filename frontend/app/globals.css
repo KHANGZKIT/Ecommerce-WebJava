@@ -74,6 +74,20 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Vietnamese typography and font smoothing optimizations */
+html {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Safe word break for Vietnamese titles */
+.break-words-vi {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
 /* Clean scrollbar for horizontally scrollable tables and tabs */
 ::-webkit-scrollbar {
   width: 6px;
@@ -91,4 +105,13 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #A8A29E;
+}
+
+/* Hide scrollbar utility for carousels and horizontally scrollable bars */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

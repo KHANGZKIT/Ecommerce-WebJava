@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { ProductCard } from "@/components/product/ProductCard";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { EmptyState, ErrorState, ProductGridSkeleton } from "@/components/ui/FeedbackStates";
 import { getCategoriesApi, getProductsApi } from "@/lib/api/catalog";
 import { CategoryDto, Page, ProductDto } from "@/types/catalog";
 
@@ -139,29 +141,29 @@ function ShopContent() {
 
   return (
     <CustomerShell className="py-0">
-      {/* ================================================================ */}
-      {/* 2. SHOP INTRO / PAGE HEADING                                     */}
-      {/* ================================================================ */}
-      {/* ================================================================ */}
-      {/* 2. SHOP INTRO / PAGE HEADING                                     */}
-      {/* ================================================================ */}
-      <section className="pt-8 pb-6 border-b border-stone-200">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 mb-2">
+      {/* 1. BREADCRUMBS */}
+      <div className="pt-4">
+        <Breadcrumbs items={[{ label: "Tất cả sản phẩm", href: "/shop", isCurrent: true }]} />
+      </div>
+
+      {/* 2. SHOP INTRO / PAGE HEADING */}
+      <section className="pt-2 pb-6 border-b border-[#E7E5E4]">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1C1917] mb-2">
           Tất cả sản phẩm
         </h1>
-        <p className="text-sm text-stone-600 leading-relaxed max-w-2xl">
-          Khám phá trọn bộ thiết bị công nghệ chính hãng: bàn phím cơ, chuột, tai nghe, màn hình và phụ kiện cao cấp.
+        <p className="text-sm text-[#78716C] leading-relaxed max-w-2xl">
+          Khám phá trọn bộ thiết bị công nghệ chính hãng: laptop, điện thoại thông minh, bàn phím cơ, màn hình và phụ kiện cao cấp.
         </p>
       </section>
 
       {/* ================================================================ */}
       {/* 3. CATEGORY NAVIGATION (Segmented Rail)                          */}
       {/* ================================================================ */}
-      <section className="py-4 border-b border-stone-200 overflow-x-auto scrollbar-none">
+      <section className="py-4 border-b border-[#E7E5E4] overflow-x-auto hide-scrollbar">
         <div className="flex items-center gap-2 min-w-max">
           <Link
             href="/shop"
-            className="bg-stone-900 text-white px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+            className="bg-[#1C1917] text-white px-3.5 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors shadow-xs"
           >
             Tất cả ({totalElements})
           </Link>
@@ -170,7 +172,7 @@ function ShopContent() {
             <Link
               key={cat.id}
               href={`/category/${cat.id}`}
-              className="bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 hover:text-stone-900 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+              className="bg-white text-[#78716C] border border-[#E7E5E4] hover:bg-[#FAFAF9] hover:text-[#1C1917] hover:border-[#1C1917]/40 px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all shadow-xs"
             >
               {cat.name}
             </Link>
@@ -181,14 +183,15 @@ function ShopContent() {
       {/* ================================================================ */}
       {/* 4. CATALOG TOOLBAR                                               */}
       {/* ================================================================ */}
-      <section className="py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200 mb-8 gap-3">
+      <section className="py-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E7E5E4] mb-8 gap-3">
         {/* Left: Product Counter */}
-        <div className="text-xs font-medium text-stone-500">
+        <div className="text-xs font-medium text-[#78716C]">
           {isLoading ? (
             <span>Đang tải danh sách sản phẩm...</span>
           ) : totalElements > 0 ? (
             <span>
-              Hiển thị {startItem}–{endItem} trên {totalElements} sản phẩm
+              Hiển thị <span className="font-semibold text-[#1C1917]">{startItem}–{endItem}</span> trên{" "}
+              <span className="font-semibold text-[#1C1917]">{totalElements}</span> sản phẩm
             </span>
           ) : (
             <span>0 sản phẩm</span>
@@ -199,7 +202,7 @@ function ShopContent() {
         <div className="flex items-center gap-2">
           <label
             htmlFor="shop-sort"
-            className="text-xs font-medium text-stone-600"
+            className="text-xs font-medium text-[#78716C]"
           >
             Sắp xếp:
           </label>
@@ -207,7 +210,7 @@ function ShopContent() {
             id="shop-sort"
             value={sort}
             onChange={handleSortChange}
-            className="h-9 px-3 bg-white border border-stone-200 rounded-lg text-xs text-stone-800 font-medium focus:border-stone-900 focus:outline-none cursor-pointer"
+            className="h-9 px-3 bg-white border border-[#E7E5E4] rounded-lg text-xs text-[#1C1917] font-semibold hover:border-[#1C1917]/40 focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none cursor-pointer transition-all shadow-xs"
           >
             {VALID_SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -222,54 +225,25 @@ function ShopContent() {
       {/* 5. PRODUCT GRID / STATES                                         */}
       {/* ================================================================ */}
       {isLoading ? (
-        /* Loading Skeleton (8 cards matching 4-column desktop grid) */
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-12">
-          {Array.from({ length: 8 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="bg-white border border-stone-200 rounded-xl p-4 flex flex-col animate-pulse"
-            >
-              <div className="aspect-square bg-stone-100 rounded-lg mb-3" />
-              <div className="h-3 w-16 bg-stone-200 rounded mb-2" />
-              <div className="h-4 w-3/4 bg-stone-200 rounded mb-4" />
-              <div className="mt-auto pt-3 border-t border-stone-100 flex justify-between">
-                <div className="h-4 w-20 bg-stone-200 rounded" />
-                <div className="h-3 w-14 bg-stone-200 rounded" />
-              </div>
-            </div>
-          ))}
+        <div className="mb-12">
+          <ProductGridSkeleton count={8} />
         </div>
       ) : error ? (
-        /* Error State Banner */
-        <div className="p-8 border border-rose-200 bg-rose-50 rounded-xl my-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-semibold text-rose-700 uppercase mb-1">
-              Không thể tải dữ liệu sản phẩm
-            </div>
-            <p className="text-sm text-rose-800">{error}</p>
-          </div>
-          <button
-            onClick={() => loadProducts(page, sort)}
-            className="h-9 px-4 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition-colors self-start sm:self-auto cursor-pointer"
-          >
-            Thử lại
-          </button>
+        <div className="my-8">
+          <ErrorState
+            title="Không thể tải dữ liệu sản phẩm"
+            message={error}
+            onRetry={() => loadProducts(page, sort)}
+          />
         </div>
       ) : pageData.content.length === 0 ? (
-        /* Empty State */
-        <div className="py-16 text-center border border-stone-200 rounded-xl bg-white my-8 p-6">
-          <h3 className="text-lg font-bold text-stone-900 mb-2">
-            Không tìm thấy sản phẩm nào
-          </h3>
-          <p className="text-sm text-stone-500 max-w-md mx-auto mb-6">
-            Hiện chưa có sản phẩm nào trong danh mục này hoặc hệ thống đang cập nhật.
-          </p>
-          <button
-            onClick={() => loadProducts(0, sort)}
-            className="inline-flex h-10 px-5 rounded-lg bg-stone-900 text-white text-xs font-medium items-center justify-center hover:bg-stone-800 transition-colors cursor-pointer"
-          >
-            Làm mới danh sách
-          </button>
+        <div className="my-8">
+          <EmptyState
+            title="Không tìm thấy sản phẩm nào"
+            message="Hiện chưa có sản phẩm nào trong danh mục này hoặc hệ thống đang cập nhật."
+            actionLabel="Làm mới danh sách"
+            onAction={() => loadProducts(0, sort)}
+          />
         </div>
       ) : (
         /* 4-Column Responsive Retail Grid */
