@@ -72,34 +72,22 @@ class PaymentServiceCurrentBehaviorTest {
         Payment saved = paymentCaptor.getValue();
         assertThat(saved.getOrderId()).isEqualTo(101L);
         assertThat(saved.getTransactionId()).isEqualTo(response.getTransactionId());
-        assertThat(saved.getStatus()).isIn(PaymentStatus.SUCCESS, PaymentStatus.FAILED);
+        assertThat(saved.getStatus()).isEqualTo(PaymentStatus.FAILED);
     }
 
     @Test
-    void processPayment_resultsInEitherSuccessOrFailedWithAppropriateMessage() {
+    void processPayment_rejectsUnintegratedPaymentMethodsWithoutMockSuccess() {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Run multiple times to observe message contract for whichever outcome RANDOM produces
-        boolean sawSuccess = false;
-        boolean sawFailed = false;
-
-        for (int i = 0; i < 50; i++) {
+        // Unintegrated methods must always be rejected with FAILED status and informative message
+        for (int i = 0; i < 20; i++) {
             PaymentRequest req = createSampleRequest(200L + i, 5L, new BigDecimal("10.00"));
             PaymentResponse resp = paymentService.processPayment(req);
 
-            if (resp.getStatus() == PaymentStatus.SUCCESS) {
-                sawSuccess = true;
-                assertThat(resp.getMessage()).isEqualTo("Payment processed successfully via CREDIT_CARD");
-            } else if (resp.getStatus() == PaymentStatus.FAILED) {
-                sawFailed = true;
-                assertThat(resp.getMessage()).isEqualTo("Payment declined by bank. Please try again.");
-            } else {
-                org.junit.jupiter.api.Assertions.fail("Unexpected payment status: " + resp.getStatus());
-            }
+            assertThat(resp.getStatus()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(resp.getMessage()).contains("chưa được kích hoạt");
+            assertThat(resp.getMessage()).contains("VNPAY chưa được triển khai");
         }
-
-        // Over 50 iterations with 90% success rate, we should observe at least success
-        assertThat(sawSuccess).isTrue();
     }
 
     @Test

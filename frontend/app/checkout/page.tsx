@@ -13,12 +13,57 @@ import { CartDto } from "@/types/cart";
 import { CheckoutRequest, CheckoutResponse } from "@/types/order";
 import { PaymentMethod } from "@/types/payment";
 
-const PAYMENT_METHODS: { id: PaymentMethod; label: string; desc: string }[] = [
-  { id: "CREDIT_CARD", label: "Thẻ tín dụng", desc: "Visa, MasterCard, JCB" },
-  { id: "DEBIT_CARD", label: "Thẻ ghi nợ / ATM", desc: "Thẻ ATM nội địa Napas" },
-  { id: "UPI", label: "Chuyển khoản QR", desc: "Quét mã QR ngân hàng nhanh chóng" },
-  { id: "NET_BANKING", label: "Internet Banking", desc: "Cổng thanh toán ngân hàng trực tuyến" },
-  { id: "WALLET", label: "Ví điện tử", desc: "Thanh toán qua ví điện tử liên kết" },
+interface PaymentOption {
+  id: PaymentMethod;
+  label: string;
+  desc: string;
+  available: boolean;
+  badge?: string;
+}
+
+const PAYMENT_METHODS: PaymentOption[] = [
+  {
+    id: "MOMO",
+    label: "Ví MoMo",
+    desc: "Cổng thanh toán MoMo Sandbox — quét mã QR hoặc liên kết ví",
+    available: true,
+    badge: "Kích hoạt",
+  },
+  {
+    id: "CREDIT_CARD",
+    label: "Thẻ Quốc Tế",
+    desc: "Visa, MasterCard, JCB (Chưa triển khai)",
+    available: false,
+    badge: "Sắp có",
+  },
+  {
+    id: "DEBIT_CARD",
+    label: "Thẻ ATM Nội Địa",
+    desc: "Napas (Chưa triển khai)",
+    available: false,
+    badge: "Sắp có",
+  },
+  {
+    id: "UPI",
+    label: "VNPAY QR",
+    desc: "Cổng VNPAY (Chưa triển khai / kiểm thử trong giai đoạn này)",
+    available: false,
+    badge: "Chưa hỗ trợ",
+  },
+  {
+    id: "NET_BANKING",
+    label: "Internet Banking",
+    desc: "Chuyển khoản trực tuyến (Chưa triển khai)",
+    available: false,
+    badge: "Sắp có",
+  },
+  {
+    id: "WALLET",
+    label: "Ví Điện Tử Khác",
+    desc: "ZaloPay, ShopeePay (Chưa triển khai)",
+    available: false,
+    badge: "Sắp có",
+  },
 ];
 
 function CheckoutContent() {
@@ -30,7 +75,7 @@ function CheckoutContent() {
 
   // Form State
   const [shippingAddress, setShippingAddress] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CREDIT_CARD");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOMO");
   const [notes, setNotes] = useState<string>("");
 
   // Submission State
@@ -103,6 +148,12 @@ function CheckoutContent() {
       return;
     }
 
+    // Validate payment method integration status
+    if (paymentMethod !== "MOMO") {
+      setValidationError("Phương thức thanh toán đã chọn chưa được kích hoạt. Hiện tại TECHGEAR chỉ hỗ trợ thanh toán qua Ví MoMo Sandbox (VNPAY chưa được triển khai/kiểm thử).");
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Generate explicit idempotency key at submission layer (per backend OrderController requirement)
@@ -119,6 +170,12 @@ function CheckoutContent() {
       };
 
       const res: CheckoutResponse = await checkoutApi(payload, idempotencyKey);
+
+      // If gateway payment URL is returned (e.g. MoMo Sandbox), redirect immediately to checkout URL
+      if (res.payUrl) {
+        window.location.href = res.payUrl;
+        return;
+      }
 
       // Navigate to /payment-result with backend response metadata
       const orderIdParam = res.orderId ? `&orderId=${res.orderId}` : "";
@@ -340,19 +397,39 @@ function CheckoutContent() {
                     <button
                       key={method.id}
                       type="button"
-                      onClick={() => setPaymentMethod(method.id)}
-                      className={`p-4 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? "border-2 border-stone-900 bg-stone-50 shadow-sm"
-                          : "border border-stone-200 bg-white hover:bg-stone-50/50"
+                      disabled={!method.available}
+                      onClick={() => {
+                        if (method.available) {
+                          setPaymentMethod(method.id);
+                        }
+                      }}
+                      className={`p-4 rounded-xl text-left transition-all flex flex-col justify-between ${
+                        !method.available
+                          ? "opacity-60 cursor-not-allowed border border-stone-200 bg-stone-50/70"
+                          : isSelected
+                          ? "border-2 border-stone-900 bg-stone-50 shadow-sm cursor-pointer"
+                          : "border border-stone-200 bg-white hover:bg-stone-50/50 cursor-pointer"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-bold text-stone-900">
-                          {method.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-bold text-stone-900">
+                            {method.label}
+                          </span>
+                          {method.badge && (
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                method.available
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-stone-200 text-stone-600"
+                              }`}
+                            >
+                              {method.badge}
+                            </span>
+                          )}
+                        </div>
                         <span
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                             isSelected
                               ? "border-stone-900 bg-stone-900"
                               : "border-stone-300 bg-white"

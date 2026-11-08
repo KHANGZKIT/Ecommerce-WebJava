@@ -19,6 +19,11 @@ public class PaymentResponse {
     private BigDecimal amount;
     private PaymentMethod paymentMethod;
     private PaymentStatus status;
+    private String providerOrderId;
+    private String payUrl;
+    private String qrCodeUrl;
+    private String deeplink;
+    private Long momoTransId;
     private String message;
     private LocalDateTime createdAt;
 }

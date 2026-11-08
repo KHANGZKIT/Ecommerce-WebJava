@@ -45,7 +45,10 @@ public class PaymentSecurityConfig {
                                 "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/charge").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/momo/ipn", "/api/v1/payments/momo/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/refund").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/internal/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(new PaymentJwtAuthenticationFilter(verifier, unauthorized),

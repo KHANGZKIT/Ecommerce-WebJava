@@ -13,7 +13,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "payments", indexes = {
         @Index(name = "idx_payments_order_id", columnList = "orderId"),
-        @Index(name = "idx_payments_transaction_id", columnList = "transactionId", unique = true)
+        @Index(name = "idx_payments_transaction_id", columnList = "transactionId", unique = true),
+        @Index(name = "idx_payments_provider_order_id", columnList = "providerOrderId"),
+        @Index(name = "idx_payments_request_id", columnList = "requestId")
 })
 @EntityListeners(AuditingEntityListener.class)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -45,8 +47,31 @@ public class Payment {
     @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
 
+    /** Unique order identifier sent to external payment gateway (e.g. MoMo) */
+    @Column(length = 100)
+    private String providerOrderId;
+
+    /** Unique request identifier sent to external payment gateway */
+    @Column(length = 100)
+    private String requestId;
+
+    /** MoMo transaction identifier returned in IPN callback */
+    private Long momoTransId;
+
+    /** Gateway checkout payment URL for customer redirection */
+    @Column(columnDefinition = "TEXT")
+    private String payUrl;
+
+    /** Gateway QR Code URL for mobile scanning */
+    @Column(columnDefinition = "TEXT")
+    private String qrCodeUrl;
+
+    /** Gateway app deep link */
+    @Column(columnDefinition = "TEXT")
+    private String deeplink;
+
     /** Human-readable reason for failure or info message */
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String message;
 
     @CreatedDate

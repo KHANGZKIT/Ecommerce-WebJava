@@ -37,6 +37,42 @@ public class PaymentController {
                 .body(paymentService.processPayment(request));
     }
 
+    @PostMapping("/momo/ipn")
+    public ResponseEntity<Void> handleMomoIpn(@Valid @RequestBody com.ecommerce.paymentservice.dto.momo.MomoIpnRequest request) {
+        paymentService.handleMomoIpn(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/momo/callback")
+    public ResponseEntity<Void> handleMomoCallback(@Valid @RequestBody com.ecommerce.paymentservice.dto.momo.MomoIpnRequest request) {
+        paymentService.handleMomoIpn(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/momo/query/{id}")
+    public ResponseEntity<PaymentResponse> queryMomoPayment(@PathVariable Long id) {
+        PaymentPrincipal principal = getAuthenticatedPrincipal();
+        PaymentResponse payment = paymentService.getPaymentById(id);
+        if (!principal.isAdmin() && (payment.getUserId() == null || !payment.getUserId().equals(principal.userId()))) {
+            throw new ApiException("Access denied to payment", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(paymentService.queryMomoPayment(id));
+    }
+
+    @RequestMapping(value = "/momo/sync/{orderId}", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<PaymentResponse> syncMomoPaymentByOrderId(@PathVariable Long orderId) {
+        PaymentPrincipal principal = getAuthenticatedPrincipal();
+        List<PaymentResponse> payments = paymentService.getPaymentsByOrderId(orderId);
+        if (!principal.isAdmin()) {
+            boolean hasOtherUserPayment = payments.stream()
+                    .anyMatch(p -> p.getUserId() != null && !p.getUserId().equals(principal.userId()));
+            if (hasOtherUserPayment) {
+                throw new ApiException("Access denied to order payments", HttpStatus.FORBIDDEN);
+            }
+        }
+        return ResponseEntity.ok(paymentService.syncMomoPaymentByOrderId(orderId));
+    }
+
     @PostMapping("/refund")
     public ResponseEntity<PaymentResponse> processRefund(
             @Valid @RequestBody RefundRequest request) {
@@ -45,6 +81,20 @@ public class PaymentController {
             throw new ApiException("Access denied to refund", HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(paymentService.processRefund(request));
+    }
+
+    @GetMapping("/admin/statistics")
+    public ResponseEntity<com.ecommerce.paymentservice.dto.PaymentStatisticsDto> getAdminStatistics() {
+        PaymentPrincipal principal = getAuthenticatedPrincipal();
+        if (!principal.isAdmin()) {
+            throw new ApiException("Admin access required for payment statistics", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(paymentService.getAdminStatistics());
+    }
+
+    @GetMapping("/internal/verified-revenue")
+    public ResponseEntity<java.math.BigDecimal> getInternalVerifiedRevenue() {
+        return ResponseEntity.ok(paymentService.getAdminStatistics().getTotalVerifiedRevenue());
     }
 
     @GetMapping("/{id}")

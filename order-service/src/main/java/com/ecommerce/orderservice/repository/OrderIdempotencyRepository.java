@@ -15,6 +15,8 @@ public interface OrderIdempotencyRepository extends JpaRepository<OrderIdempoten
 
     Optional<OrderIdempotency> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
 
+    Optional<OrderIdempotency> findFirstByOrder_Id(Long orderId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM OrderIdempotency r WHERE r.id = :id")
     Optional<OrderIdempotency> findByIdForUpdate(@Param("id") Long id);

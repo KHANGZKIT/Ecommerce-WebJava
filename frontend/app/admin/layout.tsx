@@ -1,21 +1,15 @@
-import { AdminGuard } from "@/features/auth/AuthGuard";
-import { AdminHeader } from "@/components/layout/AdminHeader";
-import { AdminFooter } from "@/components/layout/AdminFooter";
+import React from "react";
+import { AdminLayoutShell } from "@/components/admin/layout/AdminLayoutShell";
+
+export const metadata = {
+  title: "TECHGEAR Admin Dashboard",
+  description: "Trang quản trị vận hành sàn thương mại điện tử công nghệ TECHGEAR",
+};
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AdminGuard>
-      <div className="min-h-screen flex flex-col bg-[#FAFAF9]">
-        <AdminHeader />
-        <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 py-8">
-          {children}
-        </main>
-        <AdminFooter />
-      </div>
-    </AdminGuard>
-  );
+  return <AdminLayoutShell>{children}</AdminLayoutShell>;
 }

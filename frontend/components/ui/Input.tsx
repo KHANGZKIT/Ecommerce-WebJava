@@ -31,10 +31,10 @@ export function Input({
         <input
           id={inputId}
           disabled={disabled}
-          className={`w-full h-10 px-3.5 bg-white border text-sm text-[#1C1917] placeholder-[#A8A29E] rounded-lg transition-all focus:outline-none disabled:bg-[#F5F5F4] disabled:text-[#A8A29E] disabled:cursor-not-allowed ${
+          className={`w-full h-9 px-3 bg-white dark:bg-zinc-900 border text-xs text-[#1C1917] dark:text-zinc-100 placeholder-[#A8A29E] rounded-md transition-all focus:outline-none disabled:bg-[#F5F5F4] dark:disabled:bg-zinc-800 disabled:text-[#A8A29E] disabled:cursor-not-allowed ${
             error
-              ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-2 focus:ring-[#DC2626]/20"
-              : "border-[#E7E5E4] hover:border-[#1C1917]/50 focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10"
+              ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626]/20"
+              : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 focus:border-zinc-900 dark:focus:border-zinc-100 focus:ring-1 focus:ring-zinc-900/10"
           } ${className}`}
           {...props}
         />

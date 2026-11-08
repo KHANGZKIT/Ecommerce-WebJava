@@ -102,7 +102,7 @@ spring:
         - id: order-service
           uri: http://order-service:8084
           predicates:
-            - Path=/api/v1/orders/**
+            - Path=/api/v1/orders,/api/v1/orders/**
           filters:
             - StripPrefix=0
             - AuthenticationFilter
@@ -112,12 +112,23 @@ spring:
                 key-resolver: "#{@userKeyResolver}"
 
         # ─────────────────────────────────────────────────────────────────────
+        # Payment Service — public MoMo IPN callbacks (no auth filter)
+        # ─────────────────────────────────────────────────────────────────────
+        - id: payment-service-momo-webhook
+          uri: http://payment-service:8085
+          predicates:
+            - Path=/api/v1/payments/momo/ipn,/api/v1/payments/momo/callback
+            - Method=POST
+          filters:
+            - StripPrefix=0
+
+        # ─────────────────────────────────────────────────────────────────────
         # Payment Service (tighter rate limit — fraud prevention)
         # ─────────────────────────────────────────────────────────────────────
         - id: payment-service
           uri: http://payment-service:8085
           predicates:
-            - Path=/api/v1/payments/{id:[0-9]+},/api/v1/payments/order/**,/api/v1/payments/user/**,/api/v1/payments/refund
+            - Path=/api/v1/payments,/api/v1/payments/**
           filters:
             - StripPrefix=0
             - AuthenticationFilter

@@ -74,10 +74,13 @@ audit_*.png
 screenshot_*.png
 import_summary.json
 
+backups/
+
 ### Others ###
 *.log
 *.sqlite
-docs
+!docs/*.md
+!docs/reports/
 !frontend/docs/
 __pycache__/
 *.py[cod]

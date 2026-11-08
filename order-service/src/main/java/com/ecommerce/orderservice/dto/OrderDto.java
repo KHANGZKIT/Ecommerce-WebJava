@@ -19,6 +19,7 @@ public class OrderDto {
     private OrderStatus status;
     private String shippingAddress;
     private String paymentTransactionId;
+    private String payUrl;
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

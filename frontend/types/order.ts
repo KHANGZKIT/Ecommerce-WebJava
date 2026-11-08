@@ -30,6 +30,7 @@ export interface OrderDto {
   status: OrderStatus;
   shippingAddress: string;
   paymentTransactionId?: string | null;
+  payUrl?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt?: string | null;
@@ -48,9 +49,19 @@ export interface CheckoutResponse {
   paymentStatus?: string;
   totalAmount: number;
   paymentTransactionId?: string;
+  payUrl?: string;
   message?: string;
 }
 
 export interface UpdateOrderStatusRequest {
   status: OrderStatus;
+}
+
+export interface OrderStatisticsDto {
+  totalOrders: number;
+  confirmedOrders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  totalVerifiedRevenue: number;
 }

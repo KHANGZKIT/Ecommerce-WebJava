@@ -46,8 +46,11 @@ public class OrderSecurityConfig {
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/v1/orders/checkout", "/api/v1/checkout", "/api/v1/cart", "/api/v1/cart/**").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/orders/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/payment-callback").permitAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(new OrderJwtAuthenticationFilter(verifier, unauthorized),
                         UsernamePasswordAuthenticationFilter.class)

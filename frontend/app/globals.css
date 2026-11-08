@@ -1,72 +1,117 @@
 @import "tailwindcss";
 
-@theme {
+@custom-variant dark (&:is(.dark, .dark *));
+
+@theme inline {
   --font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-mono), monospace;
 
-  /* Premium Editorial Tech Commerce — Swiss Minimalism & Industrial Precision Design Tokens */
-  --color-obsidian: #1C1917;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Storefront Tech Brand Tokens */
+  --color-obsidian: #18181B;
   --color-alabaster: #FAFAF9;
   --color-stone: #E7E5E4;
   --color-signal-amber: #D97706;
   --color-signal-amber-hover: #B45309;
-  --color-white: #FFFFFF;
-  --color-muted-text: #78716C;
-
-  /* Semantic Mappings */
-  --color-canvas: #FAFAF9;
-  --color-surface-base: #FFFFFF;
-  --color-surface-raised: #F5F5F4;
-  --color-surface-sunken: #E7E5E4;
-  
-  --color-text-primary: #1C1917;
-  --color-text-secondary: #78716C;
-  --color-text-tertiary: #A8A29E;
-
-  --color-border-subtle: #E7E5E4;
-  --color-border-strong: #1C1917;
-
-  --color-brand-primary: #1C1917;
-  --color-brand-accent: #D97706;
-  --color-brand-accent-hover: #B45309;
-
-  --color-status-success: #15803D;
-  --color-status-success-bg: #F0FDF4;
-  --color-status-success-border: #BBF7D0;
-
-  --color-status-warning: #B45309;
-  --color-status-warning-bg: #FFFBEB;
-  --color-status-warning-border: #FDE68A;
-
-  --color-status-error: #DC2626;
-  --color-status-error-bg: #FEF2F2;
-  --color-status-error-border: #FECACA;
-
-  --color-status-info: #1C1917;
-  --color-status-info-bg: #FAFAF9;
-  --color-status-info-border: #E7E5E4;
 }
 
 :root {
-  --color-obsidian: #1C1917;
-  --color-alabaster: #FAFAF9;
-  --color-stone: #E7E5E4;
-  --color-signal-amber: #D97706;
-  --color-white: #FFFFFF;
-  --color-muted-text: #78716C;
+  /* Strict 6px control radius (Linear / shadcn-admin standard) */
+  --radius: 0.375rem;
 
-  --color-bg-canvas: #FAFAF9;
-  --color-surface-base: #FFFFFF;
-  --color-surface-raised: #F5F5F4;
-  --color-surface-sunken: #E7E5E4;
-  --color-text-primary: #1C1917;
-  --color-text-secondary: #78716C;
-  --color-text-tertiary: #A8A29E;
-  --color-border-subtle: #E7E5E4;
-  --color-border-strong: #1C1917;
-  --color-brand-primary: #1C1917;
-  --color-brand-accent: #D97706;
-  --color-brand-accent-hover: #B45309;
+  /* 100% Opaque Solid Surfaces */
+  --background: #FFFFFF;
+  --foreground: #09090B;
+  --card: #FFFFFF;
+  --card-foreground: #09090B;
+  --popover: #FFFFFF;
+  --popover-foreground: #09090B;
+  --primary: #18181B;
+  --primary-foreground: #FAFAFA;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
+  --destructive: #EF4444;
+  --destructive-foreground: #FAFAFA;
+  --border: #E4E4E7;
+  --input: #E4E4E7;
+  --ring: #18181B;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #18181B;
+  --sidebar-primary: #18181B;
+  --sidebar-primary-foreground: #FAFAFA;
+  --sidebar-accent: #F4F4F5;
+  --sidebar-accent-foreground: #18181B;
+  --sidebar-border: #E4E4E7;
+  --sidebar-ring: #D4D4D8;
+}
+
+.dark {
+  --background: #09090B;
+  --foreground: #FAFAFA;
+  --card: #09090B;
+  --card-foreground: #FAFAFA;
+  --popover: #09090B;
+  --popover-foreground: #FAFAFA;
+  --primary: #FAFAFA;
+  --primary-foreground: #18181B;
+  --secondary: #27272A;
+  --secondary-foreground: #FAFAFA;
+  --muted: #27272A;
+  --muted-foreground: #A1A1AA;
+  --accent: #27272A;
+  --accent-foreground: #FAFAFA;
+  --destructive: #7F1D1D;
+  --destructive-foreground: #FAFAFA;
+  --border: #27272A;
+  --input: #27272A;
+  --ring: #D4D4D8;
+
+  --sidebar: #09090B;
+  --sidebar-foreground: #FAFAFA;
+  --sidebar-primary: #D97706;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #18181B;
+  --sidebar-accent-foreground: #FAFAFA;
+  --sidebar-border: #27272A;
+  --sidebar-ring: #D97706;
 }
 
 /* Tabular numbers for price and numerical alignment */
@@ -90,21 +135,21 @@ html {
 
 /* Clean scrollbar for horizontally scrollable tables and tabs */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #FAFAF9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #E7E5E4;
+  background: #E4E4E7;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #A8A29E;
+  background: #A1A1AA;
 }
 
 /* Hide scrollbar utility for carousels and horizontally scrollable bars */

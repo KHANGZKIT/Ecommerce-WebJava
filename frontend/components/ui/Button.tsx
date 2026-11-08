@@ -34,9 +34,9 @@ export function Button({
   };
 
   const sizeStyles = {
-    sm: "text-xs px-3 py-1.5 rounded-lg min-h-[32px] gap-1.5",
-    md: "text-xs sm:text-sm px-4 py-2 rounded-lg min-h-[38px] gap-2",
-    lg: "text-sm sm:text-base px-6 py-2.5 rounded-xl min-h-[44px] gap-2.5",
+    sm: "text-xs px-3 py-1.5 rounded-md min-h-[32px] gap-1.5",
+    md: "text-xs sm:text-sm px-3.5 py-2 rounded-md min-h-[36px] gap-2",
+    lg: "text-sm sm:text-base px-5 py-2.5 rounded-md min-h-[40px] gap-2.5",
   };
 
   return (

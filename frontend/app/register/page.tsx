@@ -215,7 +215,7 @@ function RegisterContent() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#FAFAF9] font-sans antialiased">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#FAFAF9] font-sans antialiased" suppressHydrationWarning>
       {/* ================================================================ */}
       {/* 1. BRAND IMAGE PANEL (50% on Desktop)                           */}
       {/* ================================================================ */}
@@ -230,7 +230,7 @@ function RegisterContent() {
       {/* ================================================================ */}
       {/* 2. REGISTRATION FORM PANEL (50% on Desktop / Full on Mobile)    */}
       {/* ================================================================ */}
-      <section className="w-full lg:w-1/2 min-h-screen flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-[#FAFAF9]">
+      <section className="w-full lg:w-1/2 min-h-screen flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-[#FAFAF9]" suppressHydrationWarning>
         {/* Top Utility Bar */}
         <header className="flex items-center justify-between pb-6 border-b border-[#E7E5E4]">
           <Link
@@ -255,9 +255,9 @@ function RegisterContent() {
         </header>
 
         {/* Center: Form Container */}
-        <main className="my-auto py-8 w-full max-w-[440px] mx-auto">
+        <main className="my-auto py-8 w-full max-w-[440px] mx-auto" suppressHydrationWarning>
           {/* Typographic Heading */}
-          <div className="mb-6">
+          <div className="mb-6" suppressHydrationWarning>
             <span className="text-[11px] font-bold uppercase tracking-widest text-[#D97706] block mb-1.5">
               KHÁCH HÀNG MỚI
             </span>
@@ -285,7 +285,7 @@ function RegisterContent() {
           )}
 
           {/* Registration Form */}
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4" suppressHydrationWarning>
             {/* Row 1: Last Name & First Name (2-Column Grid) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>

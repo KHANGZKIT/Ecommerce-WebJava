@@ -46,6 +46,10 @@ public class Order {
     @Column(length = 100)
     private String paymentTransactionId;
 
+    /** Transient checkout URL for payment redirection (e.g. MoMo) */
+    @Transient
+    private String payUrl;
+
     @Column(length = 500)
     private String notes;
 

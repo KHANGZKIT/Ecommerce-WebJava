@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={beVietnamPro.variable}>
-      <body className="bg-[#FAFAF9] text-[#1C1917] font-sans min-h-screen antialiased selection:bg-[#1C1917] selection:text-[#FAFAF9] flex flex-col">
+    <html lang="vi" suppressHydrationWarning className={beVietnamPro.variable}>
+      <body suppressHydrationWarning className="bg-[#FAFAF9] text-[#1C1917] font-sans min-h-screen antialiased selection:bg-[#1C1917] selection:text-[#FAFAF9] flex flex-col">
         <AuthProvider>
           {children}
         </AuthProvider>

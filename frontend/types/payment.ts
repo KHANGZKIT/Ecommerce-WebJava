@@ -3,7 +3,8 @@ export type PaymentMethod =
   | "DEBIT_CARD"
   | "UPI"
   | "NET_BANKING"
-  | "WALLET";
+  | "WALLET"
+  | "MOMO";
 
 export type PaymentStatus =
   | "PENDING"

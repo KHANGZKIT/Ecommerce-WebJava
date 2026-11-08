@@ -9,7 +9,7 @@ import {
   ProductQueryParams,
   UpdateProductRequest,
 } from "@/types/catalog";
-import { OrderDto, UpdateOrderStatusRequest } from "@/types/order";
+import { OrderDto, OrderStatisticsDto, UpdateOrderStatusRequest } from "@/types/order";
 import { UserProfileDto } from "@/types/user";
 
 // Admin Products
@@ -111,4 +111,33 @@ export async function updateAdminOrderStatusApi(
     method: "PATCH",
     body: JSON.stringify(req),
   });
+}
+
+export interface GetAdminOrdersParams {
+  page?: number;
+  size?: number;
+  status?: string;
+  search?: string;
+}
+
+export async function getAdminOrdersApi(
+  params: GetAdminOrdersParams = {}
+): Promise<Page<OrderDto>> {
+  const query: Record<string, string | number> = {
+    page: params.page ?? 0,
+    size: params.size ?? 10,
+  };
+  if (params.status && params.status !== "ALL") {
+    query.status = params.status;
+  }
+  if (params.search && params.search.trim()) {
+    query.search = params.search.trim();
+  }
+  return fetchApi<Page<OrderDto>>("/api/v1/orders", {
+    params: query,
+  });
+}
+
+export async function getAdminStatisticsApi(): Promise<OrderStatisticsDto> {
+  return fetchApi<OrderStatisticsDto>("/api/v1/orders/admin/statistics");
 }

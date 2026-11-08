@@ -21,4 +21,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
     Optional<Order> findByIdWithItems(@Param("id") Long id);
+
+    @Query("SELECT o FROM Order o WHERE " +
+           "(:status IS NULL OR o.status = :status) AND " +
+           "(:search IS NULL OR :search = '' OR " +
+           " CONCAT(o.id, '') LIKE %:search% OR " +
+           " LOWER(o.shippingAddress) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           " LOWER(o.paymentTransactionId) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<Order> findAllWithFilter(@Param("status") OrderStatus status, @Param("search") String search, Pageable pageable);
+
+    long countByStatus(OrderStatus status);
 }

@@ -11,6 +11,7 @@ import com.ecommerce.orderservice.model.OrderIdempotency;
 import com.ecommerce.orderservice.model.OrderItem;
 import com.ecommerce.orderservice.model.OrderStatus;
 import com.ecommerce.orderservice.model.StockReleaseStatus;
+import com.ecommerce.orderservice.repository.OrderIdempotencyRepository;
 import com.ecommerce.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,11 +49,20 @@ public class OrderService {
     private final PaymentClient paymentClient;
     private final CartService cartService;
     private final OrderIdempotencyService orderIdempotencyService;
+    private final OrderIdempotencyRepository orderIdempotencyRepository;
 
     public OrderService(OrderRepository orderRepository,
                         ProductClient productClient,
                         PaymentClient paymentClient) {
-        this(orderRepository, productClient, paymentClient, null, null);
+        this(orderRepository, productClient, paymentClient, null, null, null);
+    }
+
+    public OrderService(OrderRepository orderRepository,
+                        ProductClient productClient,
+                        PaymentClient paymentClient,
+                        CartService cartService,
+                        OrderIdempotencyService orderIdempotencyService) {
+        this(orderRepository, productClient, paymentClient, cartService, orderIdempotencyService, null);
     }
 
     @Autowired
@@ -60,12 +70,14 @@ public class OrderService {
                         ProductClient productClient,
                         PaymentClient paymentClient,
                         @Autowired(required = false) CartService cartService,
-                        @Autowired(required = false) OrderIdempotencyService orderIdempotencyService) {
+                        @Autowired(required = false) OrderIdempotencyService orderIdempotencyService,
+                        @Autowired(required = false) OrderIdempotencyRepository orderIdempotencyRepository) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.paymentClient = paymentClient;
         this.cartService = cartService;
         this.orderIdempotencyService = orderIdempotencyService;
+        this.orderIdempotencyRepository = orderIdempotencyRepository;
     }
 
     public Order checkout(Long userId, String idempotencyKey, CheckoutRequest request, String bearerToken) {
@@ -212,6 +224,21 @@ public class OrderService {
                 }
             }
             log.warn("Order {} in PAYMENT_UNKNOWN status due to null or invalid payment response", order.getId());
+            return order;
+        }
+
+        if (PaymentResponse.STATUS_PENDING.equalsIgnoreCase(paymentResp.getStatus())) {
+            order.setStatus(OrderStatus.PENDING);
+            order.setPaymentTransactionId(paymentResp.getTransactionId());
+            order.setPayUrl(paymentResp.getPayUrl());
+            if (orderRepository != null) {
+                Order saved = orderRepository.save(order);
+                if (saved != null) {
+                    saved.setPayUrl(paymentResp.getPayUrl());
+                    order = saved;
+                }
+            }
+            log.info("Order {} is PENDING awaiting customer gateway completion. payUrl={}", order.getId(), paymentResp.getPayUrl());
             return order;
         }
 
@@ -410,6 +437,40 @@ public class OrderService {
         return orderRepository.findByUserId(userId, pageable).map(this::toDto);
     }
 
+    @Transactional(readOnly = true)
+    public Page<OrderDto> getAllOrders(OrderStatus status, String search, Pageable pageable) {
+        String cleanSearch = (search != null && !search.trim().isBlank()) ? search.trim() : null;
+        return orderRepository.findAllWithFilter(status, cleanSearch, pageable)
+                .map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public com.ecommerce.orderservice.dto.OrderStatisticsDto getAdminStatistics() {
+        long totalOrders = orderRepository.count();
+        long confirmed = orderRepository.countByStatus(OrderStatus.CONFIRMED);
+        long pending = orderRepository.countByStatus(OrderStatus.PENDING);
+        long delivered = orderRepository.countByStatus(OrderStatus.DELIVERED);
+        long cancelled = orderRepository.countByStatus(OrderStatus.CANCELLED);
+
+        BigDecimal verifiedRevenue = BigDecimal.ZERO;
+        if (paymentClient != null) {
+            try {
+                verifiedRevenue = paymentClient.getVerifiedRevenue();
+            } catch (Exception ex) {
+                log.warn("Failed to fetch verified revenue: {}", ex.getMessage());
+            }
+        }
+
+        return com.ecommerce.orderservice.dto.OrderStatisticsDto.builder()
+                .totalOrders(totalOrders)
+                .confirmedOrders(confirmed)
+                .pendingOrders(pending)
+                .deliveredOrders(delivered)
+                .cancelledOrders(cancelled)
+                .totalVerifiedRevenue(verifiedRevenue != null ? verifiedRevenue : BigDecimal.ZERO)
+                .build();
+    }
+
     @Transactional
     public OrderDto cancelOrder(Long id) {
         Order order = orderRepository.findByIdWithItems(id)
@@ -434,19 +495,98 @@ public class OrderService {
         return toDto(orderRepository.save(order));
     }
 
+    @Transactional
+    public OrderDto handlePaymentCallback(Long orderId, PaymentCallbackRequest callback) {
+        log.info("Handling payment callback for order {}: status={}, txn={}",
+                orderId, callback.getStatus(), callback.getTransactionId());
+
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
+
+        OrderIdempotency idempotencyRecord = (orderIdempotencyRepository != null)
+                ? orderIdempotencyRepository.findFirstByOrder_Id(orderId).orElse(null)
+                : null;
+        String idempotencyKey = idempotencyRecord != null ? idempotencyRecord.getIdempotencyKey() : null;
+
+        if ("SUCCESS".equalsIgnoreCase(callback.getStatus())) {
+            if (order.getStatus() == OrderStatus.CONFIRMED) {
+                log.info("Order {} already CONFIRMED. Ignoring duplicate payment callback.", orderId);
+                return toDto(order);
+            }
+
+            order.setStatus(OrderStatus.CONFIRMED);
+            if (callback.getTransactionId() != null) {
+                order.setPaymentTransactionId(callback.getTransactionId());
+            }
+            order = orderRepository.save(order);
+            log.info("Order {} marked CONFIRMED via payment callback", orderId);
+
+            // Clear cart
+            if (idempotencyRecord != null && idempotencyKey != null) {
+                clearCart(order.getUserId(), idempotencyRecord, idempotencyKey);
+            } else if (cartService != null) {
+                try {
+                    cartService.clearCart(order.getUserId());
+                } catch (Exception ex) {
+                    log.warn("Failed to clear cart for user {}: {}", order.getUserId(), ex.getMessage());
+                }
+            }
+
+            return toDto(order);
+        } else {
+            // Payment failed or cancelled
+            if (order.getStatus() == OrderStatus.PAYMENT_FAILED || order.getStatus() == OrderStatus.CANCELLED) {
+                log.info("Order {} already in failed/cancelled state: {}. Ignoring duplicate callback.",
+                        orderId, order.getStatus());
+                return toDto(order);
+            }
+
+            order.setStatus(OrderStatus.PAYMENT_FAILED);
+            order = orderRepository.save(order);
+            log.warn("Order {} marked PAYMENT_FAILED via payment callback: {}", orderId, callback.getMessage());
+
+            // Release held stock
+            if (idempotencyKey != null) {
+                try {
+                    if (productClient != null) {
+                        productClient.releaseStock(new ReleaseStockRequest(idempotencyKey));
+                        log.info("Released held stock for order {} with key {}", orderId, idempotencyKey);
+                    }
+                    if (orderIdempotencyService != null && idempotencyRecord != null && idempotencyRecord.getId() != null) {
+                        idempotencyRecord.setStockReleaseStatus(StockReleaseStatus.RELEASED);
+                        orderIdempotencyService.updateRecoveryMetadata(
+                                idempotencyRecord.getId(),
+                                idempotencyKey,
+                                null,
+                                StockReleaseStatus.RELEASED,
+                                null
+                        );
+                    }
+                } catch (Exception ex) {
+                    log.error("Failed to release stock for order {}: {}", orderId, ex.getMessage(), ex);
+                }
+            }
+
+            return toDto(order);
+        }
+    }
+
     // -------------------------------------------------------------------------
     private OrderDto toDto(Order o) {
-        List<OrderItemDto> itemDtos = o.getItems().stream().map(i ->
-                OrderItemDto.builder().id(i.getId()).productId(i.getProductId())
-                        .productName(i.getProductName()).productSku(i.getProductSku())
-                        .unitPrice(i.getUnitPrice()).quantity(i.getQuantity())
-                        .subtotal(i.getSubtotal()).build()
-        ).collect(Collectors.toList());
+        List<OrderItemDto> itemDtos = (o.getItems() != null)
+                ? o.getItems().stream().map(i ->
+                        OrderItemDto.builder().id(i.getId()).productId(i.getProductId())
+                                .productName(i.getProductName()).productSku(i.getProductSku())
+                                .unitPrice(i.getUnitPrice()).quantity(i.getQuantity())
+                                .subtotal(i.getSubtotal()).build()
+                ).collect(Collectors.toList())
+                : java.util.Collections.emptyList();
 
         return OrderDto.builder().id(o.getId()).userId(o.getUserId())
                 .items(itemDtos).totalAmount(o.getTotalAmount()).status(o.getStatus())
                 .shippingAddress(o.getShippingAddress())
                 .paymentTransactionId(o.getPaymentTransactionId())
+                .payUrl(o.getPayUrl())
                 .notes(o.getNotes()).createdAt(o.getCreatedAt()).updatedAt(o.getUpdatedAt())
                 .build();
     }

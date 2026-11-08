@@ -12,11 +12,15 @@ public class PaymentResponse {
     public static final String STATUS_SUCCESS = "SUCCESS";
     public static final String STATUS_FAILED = "FAILED";
     public static final String STATUS_UNKNOWN = "UNKNOWN";
+    public static final String STATUS_PENDING = "PENDING";
 
     private Long id;
     private String transactionId;
     private Long orderId;
-    private String status;   // SUCCESS | FAILED | UNKNOWN | REFUNDED
+    private String status;   // SUCCESS | FAILED | UNKNOWN | PENDING | REFUNDED
+    private String payUrl;
+    private String qrCodeUrl;
+    private String deeplink;
     private String message;
 
     public boolean isSuccess() {
@@ -29,6 +33,10 @@ public class PaymentResponse {
 
     public boolean isUnknown() {
         return STATUS_UNKNOWN.equalsIgnoreCase(status);
+    }
+
+    public boolean isPending() {
+        return STATUS_PENDING.equalsIgnoreCase(status);
     }
 }
 

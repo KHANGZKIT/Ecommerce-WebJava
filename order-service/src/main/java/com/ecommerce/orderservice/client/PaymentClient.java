@@ -62,5 +62,20 @@ public class PaymentClient {
                     .build();
         }
     }
+
+    public java.math.BigDecimal getVerifiedRevenue() {
+        try {
+            java.math.BigDecimal revenue = webClient.get()
+                    .uri("/api/v1/payments/internal/verified-revenue")
+                    .retrieve()
+                    .bodyToMono(java.math.BigDecimal.class)
+                    .timeout(timeout)
+                    .block();
+            return revenue != null ? revenue : java.math.BigDecimal.ZERO;
+        } catch (Exception ex) {
+            log.warn("Could not retrieve verified revenue from payment-service: {}", ex.getMessage());
+            return java.math.BigDecimal.ZERO;
+        }
+    }
 }
 

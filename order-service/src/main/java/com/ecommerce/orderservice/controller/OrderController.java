@@ -80,6 +80,9 @@ public class OrderController {
             response.put("orderId", order.getId());
             response.put("status", order.getStatus().name());
             response.put("totalAmount", order.getTotalAmount());
+            if (order.getPayUrl() != null) {
+                response.put("payUrl", order.getPayUrl());
+            }
         } else {
             response.put("status", "CHECKOUT_BOUNDARY_ESTABLISHED");
         }
@@ -98,6 +101,13 @@ public class OrderController {
         }
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/payment-callback")
+    public ResponseEntity<OrderDto> paymentCallback(
+            @PathVariable Long id,
+            @Valid @RequestBody com.ecommerce.orderservice.dto.PaymentCallbackRequest request) {
+        return ResponseEntity.ok(orderService.handlePaymentCallback(id, request));
     }
 
     @PostMapping
@@ -151,5 +161,26 @@ public class OrderController {
             throw new ApiException("Admin access required to update order status", HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<OrderDto>> getAllOrders(
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        if (!principal.isAdmin()) {
+            throw new ApiException("Admin access required to view all orders", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(orderService.getAllOrders(status, search, pageable));
+    }
+
+    @GetMapping("/admin/statistics")
+    public ResponseEntity<com.ecommerce.orderservice.dto.OrderStatisticsDto> getAdminStatistics() {
+        OrderPrincipal principal = OrderSecurityUtils.getAuthenticatedPrincipal();
+        if (!principal.isAdmin()) {
+            throw new ApiException("Admin access required to view order statistics", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(orderService.getAdminStatistics());
     }
 }
